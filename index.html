@@ -3,11 +3,11 @@
 
 <head>
   <meta charset="utf-8">
-  <meta name="description" content="Multi-agent Planning using Visual Language Models">
+  <meta name="description" content="Lightweight Open-Vocabulary 3D Scene Graphs with Semantic Tracking in Dynamic Environments">
   <meta name="keywords"
-    content="Multi-agent Planning">
+    content="3D Scene Graphs, Semantic Tracking, Dynamic Environments, Open-Vocabulary, Robotics">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Embodied Multi-role Open-vocabulary Planning with Online Grounding and Execution</title>
+  <title>LOST-3DSG: Lightweight Open-Vocabulary 3D Scene Graphs with Semantic Tracking in Dynamic Environments</title>
 
   <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro" rel="stylesheet">
 
@@ -61,8 +61,8 @@
             Related Research
           </a>
           <div class="navbar-dropdown">
-            <a class="navbar-item" href="https://lab-rococo-sapienza.github.io/map-vlm/">
-              ECAI
+            <a class="navbar-item" href="https://lab-rococo-sapienza.github.io/lost-3dsg/">
+              LOST-3DSG Project Page
             </a>
           </div>
         </div>
@@ -78,29 +78,37 @@
         <div class="columns is-centered">
           <div class="column has-text-centered">
             <img style="height:6vw; margin-bottom: 3px;" src ="assets/images/logo.png">
-            <h1 class="title is-2 publication-title">Embodied Multi-role Open-vocabulary Planning with Online Grounding and Execution</h1>
-            <h2 class="title is-6 publlication-title">IROS 2024</h2>
+            <h1 class="title is-2 publication-title">LOST-3DSG: Lightweight Open-Vocabulary 3D Scene Graphs with Semantic Tracking in Dynamic Environments</h1>
+            <h2 class="title is-6 publlication-title">WACV 2026</h2>
             <div class="is-size-6 publication-authors">
               <span class="author-block">
-                <a href="https://www.linkedin.com/in/fra-arg/"><i>Francesco Argenziano</i></a> <sup>1</sup>,
+                <i>Sara Micol Ferraina</i><sup>*1</sup>,
               </span>
               <span class="author-block">
-                <a href="https://www.linkedin.com/in/michele-brienza-ba0292253/"><i>Michele Brienza</i></a> <sup>1</sup>,
+                <a href="https://www.linkedin.com/in/michele-brienza-ba0292253/"><i>Michele Brienza</i></a><sup>*1</sup>,
               </span>
               <span class="author-block">
-                <a href="https://www.linkedin.com/in/vincenzo-suriani-549429127/"><i>Vincenzo Suriani </i></a> <sup>2</sup>,
+                <a href="https://www.linkedin.com/in/fra-arg/"><i>Francesco Argenziano</i></a><sup>1</sup>,
               </span>
               <span class="author-block">
-                <a href=""><i>Daniele Nardi</i></a><sup>1</sup>,
-              </span>
-              <span class="author-block">
-                <a href="https://web.unibas.it/bloisi/"><i>Domenico Daniele Bloisi</i></a> <sup>3</sup>,
+                <i>Emanuele Musumeci</i><sup>1</sup>,
               </span>
               <br>
+              <span class="author-block">
+                <a href="https://www.linkedin.com/in/vincenzo-suriani-549429127/"><i>Vincenzo Suriani</i></a><sup>1</sup>,
+              </span>
+              <span class="author-block">
+                <a href="https://web.unibas.it/bloisi/"><i>Domenico D. Bloisi</i></a><sup>2</sup>,
+              </span>
+              <span class="author-block">
+                <i>Daniele Nardi</i><sup>1</sup>
+              </span>
+              <br>
+              <span style="font-size: 0.8em;"><sup>*</sup>Authors contributed equally</span>
+            </div>
             <div class="is-size-6 publication-authors">
               <span class="author-block"><sup>1</sup>Sapienza University of Rome</span>
-              <span class="author-block"><sup>2</sup>University of Basilicata</span>
-              <span class="author-block"><sup>3</sup>International University of Rome</span>
+              <span class="author-block"><sup>2</sup>International University of Rome UNINT</span>
               <br>
             </div>
 
@@ -108,7 +116,7 @@
               <div class="publication-links">
                 <!-- PDF Link. -->
                 <span class="link-block">
-                  <a href="assets/pdf/empower.pdf" class="external-link button is-normal ">
+                  <a href="SG4SI___WACV_2026.pdf" class="external-link button is-normal ">
                     <span class="icon">
                       <i class="fas fa-file-pdf"></i>
                     </span>
@@ -116,20 +124,20 @@
                   </a>
                 </span>
                 <span class="link-block">
-                  <a href="https://www.arxiv.org/abs/2408.17379" class="external-link button is-normal ">
+                  <a href="#" class="external-link button is-normal ">
                     <span class="icon">
                       <i class="ai ai-arxiv"></i>
                     </span>
-                    <span>arXiv</span>
+                    <span>arXiv (Coming Soon)</span>
                   </a>
                 </span>
                 <!-- Code Link. -->
                 <span class="link-block">
-                  <a href="https://github.com/Lab-RoCoCo-Sapienza/empower/tree/main" class="external-link button is-normal ">
+                  <a href="#" class="external-link button is-normal ">
                     <span class="icon">
                       <i class="fab fa-github"></i>
                     </span>
-                    <span>Code</span>
+                    <span>Code (Coming Soon)</span>
                   </a>
                 </span>
               </div>
@@ -142,8 +150,8 @@
   </section>
 
   <div class="container is-max-desktop">
-      <img src="assets/images/iros_methodology.png" alt="Architecture" style="width:150%;">
-      <h5 class="has-text-justified">Complete architecture of EMPOWER, from the task description to the execution of the plan in the world. The RGB image is used to extract a graph of the scene as long as the final plan and the object labels. These labels are then grounded via an NLP pipeline and reprojected onto the pointclouds extracted from the depth image of the robot. Lastly, reference points are computed from these pointclouds to facilitate actions in the world. Use case illustrated: order the objects on the table from the highest to the lowest.</h5>
+      <img src="assets/images/methodology.png" alt="Architecture" style="width:100%;">
+      <h5 class="has-text-justified">Overview of LOST-3DSG framework. The Perception Module processes RGB and depth images to build the 3D Scene Graph using open-vocabulary detection and semantic attribute extraction. The Scene Update Module maintains object identity across time using the Lost Similarity Function (LSF), which combines semantic, chromatic, material, and description similarities for robust tracking in dynamic environments.</h5>
     </div>
 
   <div style = "margin-top: 3%" class="columns is-centered has-text-centered">
@@ -151,10 +159,7 @@
       <h2 class="title is-3">Abstract</h2>
       <div class="column has-text-justified">
         <p>
-
-          Task planning for robots in real-life settings presents significant challenges. These challenges stem from three primary issues: the difficulty in identifying grounded sequences of steps to achieve a goal; the lack of a standardized mapping between high-level actions and low-level commands; and the challenge of maintaining low computational overhead given the limited resources of robotic hardware.
-          We introduce EMPOWER, a framework designed for open-vocabulary online grounding and planning for embodied agents aimed at addressing these issues. By leveraging efficient pre-trained foundation models and a multi-role mechanism, EMPOWER demonstrates notable improvements in grounded planning and execution.
-          Quantitative results highlight the effectiveness of our approach, achieving an average success rate of 0.73 across six different real-life scenarios using a TIAGo robot. 
+          Tracking objects that move within dynamic environments is a core challenge in robotics. Recent research has advanced this topic significantly; however, many existing approaches remain inefficient due to their reliance on heavy foundation models. To address this limitation, we propose LOST-3DSG, a lightweight open-vocabulary 3D scene graph designed to track dynamic objects in real-world environments. Our method adopts a semantic approach to entity tracking based on word2vec and sentence embeddings, enabling an open-vocabulary representation while avoiding the necessity of storing dense CLIP visual features. As a result, LOST-3DSG achieves superior performance compared to approaches that rely on high-dimensional visual embeddings. We evaluate our method through qualitative and quantitative experiments conducted in a real 3D environment using a TIAGo robot. The results demonstrate the effectiveness and efficiency of LOST-3DSG in dynamic object tracking.
         </p>
       </div>
 
@@ -175,20 +180,14 @@
     <div class="column is-four-fifths">
       <h2 class="title is-3">Approach</h2>
       <div class="column has-text-justified">
-        <p>Our work consists of three components: a planner that generates a plan from a task description with a multi-role architecture; a model that grounds the plan in the environment 
-          using NLP techniques and an executor that executes the plan on a robot mapping the high-level actions to low-level commands. Thanks to the use of 
-          The contributions of our work are the following:
-            <li> We propose a multi-role, single-body hierarchical subtask division that enables complex reasoning about the
-              scene and allows for the creation of plans that can be grounded in the environment;</li>
-            <li>We present a complete pipeline that incorporates FMs
-              for extracting meaningful information from the world,
-              while being resilient to the online constraint given by
-              the limited computational resources of real robots;</li>
-            <li>We provide a flexible solution that, thanks to our
-              novel open-vocabulary framework, grounds and deploys plans across different robotic platforms in the
-              environment. </li>
-            Our approach enables planning for embodied agents in an open vocabulary setting through NLP-driven semantic comprehension of scene elements. We first assess the improvement in high-level planning by comparing our multi-role VLM-based architecture to a single-role approach.
-            Subsequently, we evaluate the system's full planning capabilities, from high to low levels, by executing tasks with a TIAGo robot in real environments and measuring the success rate.
+        <p>LOST-3DSG consists of two main components: the Perception Module and the Scene Update Module. The key contributions of our work are:
+            <li><strong>Lightweight 3D Scene Graph:</strong> We introduce a memory-efficient representation that uses word2vec and sentence embeddings instead of dense CLIP features, reducing memory footprint by 99.5% (from ~641 MB to ~3 KB).</li>
+            <li><strong>Lost Similarity Function (LSF):</strong> A composite metric that combines semantic similarity (labels), chromatic similarity (colors), material similarity, and description similarity to robustly associate objects across time.</li>
+            <li><strong>Semantic Tracking Algorithm:</strong> Our Scene Update Module operates in two modes (exploration and tracking), maintaining object identity through semantic attributes rather than visual features alone.</li>
+            <li><strong>Real-world Validation:</strong> We evaluate our system on a TIAGo robot across three scenarios of increasing complexity, demonstrating accurate tracking in dynamic environments with minimal computational overhead.</li>
+        </p>
+        <p style="margin-top: 15px;">
+          The system processes RGB-D observations to extract object labels, colors, materials, and fine-grained descriptions using a Vision-Language Model. These semantic attributes are then encoded using lightweight embeddings and used for temporal association, enabling the robot to recognize when objects move, disappear, or reappear in the scene.
         </p>
       </div>
 
@@ -228,14 +227,12 @@
   <section class="section" id="BibTeX">
     <div class="container is-max-desktop content">
       <h2 class="title">BibTeX</h2>
-      <pre><code>@article{argenziano2024empowerembodiedmultiroleopenvocabulary,
-        title={EMPOWER: Embodied Multi-role Open-vocabulary Planning with Online Grounding and Execution}, 
-        author={Francesco Argenziano and Michele Brienza and Vincenzo Suriani and Daniele Nardi and Domenico D. Bloisi},
-        year={2024},
-        eprint={2408.17379},
-        archivePrefix={arXiv},
-        primaryClass={cs.RO},
-        url={https://arxiv.org/abs/2408.17379}, }</code></pre>
+      <pre><code>@inproceedings{ferraina2026lost3dsg,
+        title={LOST-3DSG: Lightweight Open-Vocabulary 3D Scene Graphs with Semantic Tracking in Dynamic Environments}, 
+        author={Sara Micol Ferraina and Michele Brienza and Francesco Argenziano and Emanuele Musumeci and Vincenzo Suriani and Domenico D. Bloisi and Daniele Nardi},
+        booktitle={IEEE/CVF Winter Conference on Applications of Computer Vision (WACV)},
+        year={2026}
+}</code></pre>
     </div>
   </section>
 
