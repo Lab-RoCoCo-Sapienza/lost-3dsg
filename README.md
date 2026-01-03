@@ -1,4 +1,5 @@
 <div align="center">
+<img src="/assets/logo.png" width=60%>
 <br>
 <h3>LOST-3DSG: Lightweight Open-Vocabulary 3D Scene Graphs with Semantic Tracking in Dynamic Environments</h3>
   
