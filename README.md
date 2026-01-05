@@ -3,7 +3,7 @@
 <br>
 <h3>LOST-3DSG: Lightweight Open-Vocabulary 3D Scene Graphs with Semantic Tracking in Dynamic Environments</h3>
   
-<a href="https://">Sara Micol Ferraina</a><sup><span>1</span></sup>,
+<a href="https://www.linkedin.com/in/sara-micol-ferraina-0a51173a1/">Sara Micol Ferraina</a><sup><span>1</span></sup>,
 <a href="https://scholar.google.com/citations?user=sk3SpmUAAAAJ&hl=it&oi=ao/">Michele Brienza</a><sup><span>1</span></sup>,
 <a href="https://www.linkedin.com/in/fra-arg/">Francesco Argenziano</a><sup><span>1</span></sup>,
 <a href="https://scholar.google.com/citations?user=XLcFkmUAAAAJ&hl=it">Emanuele Musumeci</a><sup><span>1</span></sup>,
