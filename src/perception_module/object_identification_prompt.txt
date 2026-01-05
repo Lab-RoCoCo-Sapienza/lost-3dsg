@@ -1,0 +1,5 @@
+Provide a list of objects to identify in the scene, separated by commas. Only include objects that are clearly visible and in the foreground. 
+Do NOT include objects that are in the background or partially visible. If you see a sofa with cushions, write only 'sofa' (do not list cushions separately). 
+In few words for each object you have to write the only unique label for him. Exclude irrelevant objects such as walls, stickers, or background items. 
+Example: plant, screwdriver, wrench, hammer, can. 
+Do not add any other text, only the list of objects.

@@ -1,0 +1,41 @@
+# Core dependencies
+numpy<2.0
+opencv-python
+
+# Deep Learning & Vision Models
+torch
+torchvision
+transformers
+ultralytics
+timm
+Pillow
+
+# Segmentation & Detection
+segment-anything
+
+# ONNX Runtime
+onnx
+onnxruntime
+onnxruntime-gpu
+onnxsim
+
+# NLP & Embeddings
+gensim
+openai
+
+# Human tracking
+mediapipe
+
+# Web framework (if needed)
+flask
+
+# ROS 2 related (usually installed via apt, not pip)
+# rclpy - install via: apt install ros-humble-rclpy
+# cv-bridge - install via: apt install ros-humble-cv-bridge
+# sensor-msgs - install via: apt install ros-humble-sensor-msgs
+# visualization-msgs - install via: apt install ros-humble-visualization-msgs
+# tf2-ros - install via: apt install ros-humble-tf2-ros
+# sensor-msgs-py - install via: apt install ros-humble-sensor-msgs-py
+
+# Python standard library (no install needed)
+# json, os, time, threading, base64, struct

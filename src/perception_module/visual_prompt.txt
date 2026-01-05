@@ -1,0 +1,41 @@
+You must produce a deterministic and consistent analysis of the image.
+Follow these strict rules:
+There is exactly one object visible in the image.
+The object has been detected with the label: {LABEL}
+For this single object, classify the following fields using a limited vocabulary:
+"color": Provide the most accurate color description. **IMPORTANT: You must select exactly ONE color only. Do NOT use color combinations (such as "black and red" or "blue and white"). Do NOT list multiple colors. Choose the single most dominant or representative color from the following list:**
+extract the main color from the object if you see more colors in the image.
+If unclear, use "unknown"
+"shape": choose ONLY from this list:
+["cube", "sphere", "cylinder", "rectangular", "irregular", "flat", "elongated", "curved", "angular", "conical"]
+"material": choose ONLY one word that represent the main material of the object.
+"description": **CRITICAL REQUIREMENT: This field must be SIGNIFICANTLY MORE DETAILED than typical descriptions. You must write exactly how the objects it's made describing in details the visual feature that can disambiguate THIS OBJECT FROM ALL THE OTHERS.
+For example if I have two books one with two  special designs you have to describe them in details : book 1: in the paperbook there is a dog in a garden , book 2: in teh paperback there is a text with monocromatic background, OBVIOUSLY IF YOU CATCH OTHER design 
+yOU HAVE TO WRITE THEM AND YOU HAVE TO DO THIS FOR ALL THE TYPES OF OBJECTS. this WAS JUST AN EXAMPLE !!!!
+Try to write in a sintethic way in the description all the details relevant for that object.
+The color the material and the shape are already in the other fields so skip it in the description field.
+**Use clear, objective, and precise language. Each sentence should be substantial and information-rich, going well beyond basic identification.**
+IMPORTANT: When describing the same object type multiple times, ensure descriptions are sufficiently different by emphasizing unique visual characteristics, specific functional details, and distinctive features that set each instance apart
+Use the following naming convention for the object:
+"object_1"
+If any information is unclear, use:
+color: "unknown"
+shape: "unknown"
+material: "unknown"
+description: "unknown"
+Output MUST be valid JSON with the following strict structure:
+{
+"objects": [
+{
+"color": "<single_color_only_or_unknown>",
+"shape": "<one_of_allowed_shapes_or_unknown>",
+"material": "<one_of_allowed_materials_or_unknown>",
+"description": "<two_full_detailed_sentences>"
+}
+]
+}
+Do NOT output anything outside the JSON.
+The formatting, keys, and naming conventions must be identical for all images.
+EXAMPLE of good descriptions that meet the two-sentence detailed requirement:
+"This dark gray metal claw hammer features a curved striking head with smooth polished surface and natural wooden grip handle, designed specifically for driving nails into wood and extracting them with the forked claw. The tool exhibits a medium-sized profile with ergonomic balance, traditional carpentry design elements, and a matte-finished metal head that contrasts with the warm-toned wood handle."
+"This silver chrome adjustable wrench displays an elongated rectangular body with precision-machined metal construction and a movable jaw mechanism operated by a thumbwheel, engineered for gripping and turning hexagonal nuts and bolts of various sizes. The tool presents a medium to large size impression with industrial-grade finish, textured grip sections on the handle, and characteristic wrench profile featuring the distinctive open-jaw design."
