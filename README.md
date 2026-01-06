@@ -1,16 +1,19 @@
 <div align="center">
 <img src="/assets/logo.png" width=60%>
 <br>
+
 <h3>LOST-3DSG: Lightweight Open-Vocabulary 3D Scene Graphs with Semantic Tracking in Dynamic Environments</h3>
   
-<a href="https://www.linkedin.com/in/sara-micol-ferraina-0a51173a1/">Sara Micol Ferraina</a><sup><span>1</span></sup>,
-<a href="https://scholar.google.com/citations?user=sk3SpmUAAAAJ&hl=it&oi=ao/">Michele Brienza</a><sup><span>1</span></sup>,
+<a href="https://www.linkedin.com/in/sara-micol-ferraina-0a51173a1/">Sara Micol Ferraina</a><sup><span>*1</span></sup>,
+<a href="https://scholar.google.com/citations?user=sk3SpmUAAAAJ&hl=it&oi=ao/">Michele Brienza</a><sup><span>*1</span></sup>,
 <a href="https://www.linkedin.com/in/fra-arg/">Francesco Argenziano</a><sup><span>1</span></sup>,
 <a href="https://scholar.google.com/citations?user=XLcFkmUAAAAJ&hl=it">Emanuele Musumeci</a><sup><span>1</span></sup>,
 <a href="https://scholar.google.com/citations?user=Y8LuLfoAAAAJ&hl=it&oi=ao">Vincenzo Suriani</a><sup><span>1</span></sup>,
 <a href="https://scholar.google.com/citations?user=_90LQXQAAAAJ&hl=it&oi=ao">Domenico D. Bloisi</a><sup><span>2</span></sup>,
 <a href="https://scholar.google.com/citations?user=xZwripcAAAAJ&hl=it&oi=ao">Daniele Nardi</a><sup><span>1</span></sup>
 </br>
+
+<span style="font-size: 0.8em;"><sup>*</sup>Authors contributed equally</span>
 
 <sup>1</sup> Department of Computer, Control and Management Engineering, Sapienza University of Rome, Rome, Italy,
 <sup>2</sup> International University of Rome UNINT, Rome, Italy
