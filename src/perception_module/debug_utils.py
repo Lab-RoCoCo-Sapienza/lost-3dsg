@@ -1,46 +1,46 @@
 from datetime import datetime
 
 class TrackingLogger:
-    """Classe per logging con recap leggibili in un singolo file"""
+    """Class for logging with readable recaps in a single file"""
     def __init__(self, filepath):
         self.filepath = filepath
         self.log_file = open(filepath, 'w', buffering=1, encoding='utf-8')
 
-        # Scrivi header informativo
+        # Write informative header
         self.log_file.write("=" * 80 + "\n")
-        self.log_file.write("TRACKING LOG - RECAP DETTAGLIATO DELLE OPERAZIONI\n")
-        self.log_file.write(f"Sessione avviata: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+        self.log_file.write("TRACKING LOG - DETAILED OPERATIONS RECAP\n")
+        self.log_file.write(f"Session started: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
         self.log_file.write("=" * 80 + "\n\n")
 
     def write_readable(self, message):
-        """Scrive un messaggio leggibile nel log"""
+        """Write a readable message to the log"""
         self.log_file.write(f"{message}\n")
         self.log_file.flush()
 
     def log_exploration_end(self, objects_list):
-        """Scrive il recap completo alla fine dell'esplorazione"""
+        """Write complete recap at the end of exploration"""
         self.log_file.write("\n" + "=" * 80 + "\n")
-        self.log_file.write("FINE FASE ESPLORAZIONE\n")
+        self.log_file.write("END OF EXPLORATION PHASE\n")
         self.log_file.write("=" * 80 + "\n")
         self.log_file.write(f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-        self.log_file.write(f"Oggetti totali rilevati: {len(objects_list)}\n\n")
+        self.log_file.write(f"Total objects detected: {len(objects_list)}\n\n")
 
         if objects_list:
-            self.log_file.write("OGGETTI NELLA SCENA:\n")
+            self.log_file.write("OBJECTS IN THE SCENE:\n")
             for i, obj in enumerate(objects_list, 1):
-                desc = obj.description if obj.description else "nessuna descrizione"
-                color = obj.color if obj.color else "colore sconosciuto"
-                material = obj.material if obj.material else "materiale sconosciuto"
-                shape = obj.shape if obj.shape else "forma sconosciuta"
+                desc = obj.description if obj.description else "no description"
+                color = obj.color if obj.color else "unknown color"
+                material = obj.material if obj.material else "unknown material"
+                shape = obj.shape if obj.shape else "unknown shape"
                 self.log_file.write(f"  {i}. {obj.label} ({color}, {material}, {shape}) - {desc}\n")
         else:
-            self.log_file.write("Nessun oggetto rilevato.\n")
+            self.log_file.write("No objects detected.\n")
 
         self.log_file.write("=" * 80 + "\n\n")
         self.log_file.flush()
 
     def log_tracking_step_start(self, step_number):
-        """Inizia un nuovo tracking step"""
+        """Start a new tracking step"""
         self.log_file.write("\n" + "─" * 80 + "\n")
         self.log_file.write(f"TRACKING STEP {step_number}\n")
         self.log_file.write(f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
@@ -48,71 +48,71 @@ class TrackingLogger:
         self.log_file.flush()
 
     def log_deletion(self, obj_label, reason, bbox=None, step_number=None, obj=None, case_type=None):
-        """Registra eliminazione con frase leggibile"""
+        """Log deletion with readable sentence"""
         if obj:
-            desc = obj.description if obj.description else "nessuna descrizione"
-            color = obj.color if obj.color else "colore sconosciuto"
-            material = obj.material if obj.material else "materiale sconosciuto"
-            shape = obj.shape if obj.shape else "forma sconosciuta"
+            desc = obj.description if obj.description else "no description"
+            color = obj.color if obj.color else "unknown color"
+            material = obj.material if obj.material else "unknown material"
+            shape = obj.shape if obj.shape else "unknown shape"
         else:
-            desc = "nessuna descrizione disponibile"
-            color = "colore sconosciuto"
-            material = "materiale sconosciuto"
-            shape = "forma sconosciuta"
+            desc = "no description available"
+            color = "unknown color"
+            material = "unknown material"
+            shape = "unknown shape"
 
         case_info = f" [{case_type}]" if case_type else ""
-        message = f"  • ELIMINATO{case_info}: '{obj_label}' ({color}, {material}, {shape}) - {desc}"
+        message = f"  • DELETED{case_info}: '{obj_label}' ({color}, {material}, {shape}) - {desc}"
         self.write_readable(message)
 
     def log_position_change(self, obj_label, old_bbox, new_bbox, distance, step_number=None, obj=None, case_type=None):
-        """Registra cambiamento posizione con frase leggibile"""
+        """Log position change with readable sentence"""
         if obj:
-            desc = obj.description if obj.description else "nessuna descrizione"
-            color = obj.color if obj.color else "colore sconosciuto"
-            material = obj.material if obj.material else "materiale sconosciuto"
-            shape = obj.shape if obj.shape else "forma sconosciuta"
+            desc = obj.description if obj.description else "no description"
+            color = obj.color if obj.color else "unknown color"
+            material = obj.material if obj.material else "unknown material"
+            shape = obj.shape if obj.shape else "unknown shape"
         else:
-            desc = "nessuna descrizione disponibile"
-            color = "colore sconosciuto"
-            material = "materiale sconosciuto"
-            shape = "forma sconosciuta"
+            desc = "no description available"
+            color = "unknown color"
+            material = "unknown material"
+            shape = "unknown shape"
 
         case_info = f" [{case_type}]" if case_type else ""
-        message = f"  • AGGIORNATO{case_info}: '{obj_label}' ({color}, {material}, {shape}) - {desc} (spostato di {distance:.2f}m)"
+        message = f"  • UPDATED{case_info}: '{obj_label}' ({color}, {material}, {shape}) - {desc} (moved {distance:.2f}m)"
         self.write_readable(message)
 
     def log_uncertain_added(self, obj_label, reason, distance, bbox=None, step_number=None, obj=None, case_type=None):
-        """Registra aggiunta a uncertain con frase leggibile"""
+        """Log addition to uncertain with readable sentence"""
         if obj:
-            desc = obj.description if obj.description else "nessuna descrizione"
-            color = obj.color if obj.color else "colore sconosciuto"
-            material = obj.material if obj.material else "materiale sconosciuto"
-            shape = obj.shape if obj.shape else "forma sconosciuta"
+            desc = obj.description if obj.description else "no description"
+            color = obj.color if obj.color else "unknown color"
+            material = obj.material if obj.material else "unknown material"
+            shape = obj.shape if obj.shape else "unknown shape"
         else:
-            desc = "nessuna descrizione disponibile"
-            color = "colore sconosciuto"
-            material = "materiale sconosciuto"
-            shape = "forma sconosciuta"
+            desc = "no description available"
+            color = "unknown color"
+            material = "unknown material"
+            shape = "unknown shape"
 
         case_info = f" [{case_type}]" if case_type else ""
-        message = f"  • OGGETTO INCERTO{case_info}: '{obj_label}' ({color}, {material}, {shape}) - {desc} (spostamento {distance:.2f}m, da verificare)"
+        message = f"  • UNCERTAIN OBJECT{case_info}: '{obj_label}' ({color}, {material}, {shape}) - {desc} (displacement {distance:.2f}m, to be verified)"
         self.write_readable(message)
 
     def log_new_object(self, obj, case_type=None):
-        """Registra l'aggiunta di un nuovo oggetto"""
-        desc = obj.description if obj.description else "nessuna descrizione disponibile"
-        color = obj.color if obj.color else "colore sconosciuto"
-        material = obj.material if obj.material else "materiale sconosciuto"
-        shape = obj.shape if obj.shape else "forma sconosciuta"
+        """Log addition of a new object"""
+        desc = obj.description if obj.description else "no description available"
+        color = obj.color if obj.color else "unknown color"
+        material = obj.material if obj.material else "unknown material"
+        shape = obj.shape if obj.shape else "unknown shape"
 
         case_info = f" [{case_type}]" if case_type else ""
-        message = f"  • NUOVO OGGETTO{case_info}: '{obj.label}' ({color}, {material}, {shape}) - {desc}"
+        message = f"  • NEW OBJECT{case_info}: '{obj.label}' ({color}, {material}, {shape}) - {desc}"
         self.write_readable(message)
 
     def close(self):
-        """Chiude il file di log"""
+        """Close the log file"""
         self.log_file.write("\n" + "=" * 80 + "\n")
-        self.log_file.write(f"Sessione terminata: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+        self.log_file.write(f"Session ended: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
         self.log_file.write("=" * 80 + "\n")
         self.log_file.close()
 

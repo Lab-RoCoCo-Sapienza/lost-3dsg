@@ -69,16 +69,16 @@ tracking_logger = TrackingLogger(tracking_log_file)
 
 def create_object_key(label, material, color, description):
     """
-    Crea una chiave univoca per un oggetto basata su label, material, color e description.
+    Create a unique key for an object based on label, material, color, and description.
 
     Args:
-        label: Label dell'oggetto
-        material: Materiale dell'oggetto
-        color: Colore dell'oggetto
-        description: Descrizione dell'oggetto
+        label: Object label
+        material: Object material
+        color: Object color
+        description: Object description
 
     Returns:
-        str: Chiave univoca (JSON string)
+        str: Unique key (JSON string)
     """
     key_dict = {
         "label": label if label else "",
@@ -92,17 +92,17 @@ def create_object_key(label, material, color, description):
 def find_best_matching_key(target_label, target_material, target_color, target_description,
                            target_embedding, keys_dict, word2vec_model, threshold=0.0):
     """
-    Trova la chiave migliore in keys_dict che corrisponde all'oggetto target usando lost_similarity.
+    Find the best key in keys_dict matching the target object using lost_similarity.
 
     Args:
-        target_label, target_material, target_color, target_description: Attributi dell'oggetto target
-        target_embedding: Embedding della descrizione dell'oggetto target
-        keys_dict: Dizionario con chiavi composite da cercare
-        word2vec_model: Modello word2vec
-        threshold: Soglia minima di similarità
+        target_label, target_material, target_color, target_description: Target object attributes
+        target_embedding: Embedding of the target object's description
+        keys_dict: Dictionary containing composite keys to search
+        word2vec_model: Word2Vec model
+        threshold: Minimum similarity threshold
 
     Returns:
-        tuple: (best_key, best_similarity) o (None, 0.0) se nessun match
+        tuple: (best_key, best_similarity) or (None, 0.0) if no match
     """
     best_key = None
     best_similarity = threshold
@@ -110,10 +110,10 @@ def find_best_matching_key(target_label, target_material, target_color, target_d
     for key in keys_dict.keys():
         key_data = json.loads(key)
 
-        # Ottieni embedding per la descrizione della chiave
+        # Get embedding for the key description
         key_embedding = get_embedding(client, key_data["description"]) if key_data["description"] else None
 
-        # Calcola lost_similarity
+        # Compute lost_similarity
         similarity = lost_similarity(
             word2vec_model,
             target_label, key_data["label"],
@@ -131,28 +131,28 @@ def find_best_matching_key(target_label, target_material, target_color, target_d
 
 def compute_pov_volume(bboxes_list, expansion_ratio=VOLUME_EXPANSION_RATIO):
     """
-    Calcola il POV (Point of View) volume che contiene tutte le detection.
+    Compute the POV (Point of View) volume that contains all detections.
 
-    Questo volume rappresenta "cosa sta guardando la camera" in questo frame.
-    Gli oggetti persistenti che sono DENTRO questo volume ma NON sono stati
-    visti devono essere eliminati.
+    This volume represents what the camera is looking at in this frame.
+    Persistent objects whose centroids are inside this volume but are not seen
+    must be removed.
 
     Args:
-        bboxes_list: lista di bbox dict (x_min, x_max, y_min, y_max, z_min, z_max)
-        expansion_ratio: percentuale di espansione (default 0.2 = 20%)
+        bboxes_list: list of bbox dicts (x_min, x_max, y_min, y_max, z_min, z_max)
+        expansion_ratio: proportional expansion ratio (default 0.2 = 20%)
 
     Returns:
-        dict: POV volume espanso, o None se la lista è vuota
+        dict: Expanded POV volume, or None if the list is empty
     """
     if not bboxes_list:
         return None
 
-    # Soglia volume massimo per applicare riduzione bbox (in metri cubi)
-    MAX_VOLUME_THRESHOLD = 0.5  # Se bbox > 0.5 m³, riduci del 30%
-    BBOX_REDUCTION_RATIO = 0.30  # 30% di riduzione
+    # Max volume to trigger bbox reduction (in cubic meters)
+    MAX_VOLUME_THRESHOLD = 0.5  # If bbox > 0.5 m³, shrink by 30%
+    BBOX_REDUCTION_RATIO = 0.30  # 30% reduction
 
     def shrink_bbox(bbox, ratio):
-        """Riduce una bbox del ratio% mantenendo il centro"""
+        """Shrink a bbox by ratio% while keeping its center."""
         x_center = (bbox["x_min"] + bbox["x_max"]) / 2.0
         y_center = (bbox["y_min"] + bbox["y_max"]) / 2.0
         z_center = (bbox["z_min"] + bbox["z_max"]) / 2.0
@@ -171,24 +171,24 @@ def compute_pov_volume(bboxes_list, expansion_ratio=VOLUME_EXPANSION_RATIO):
         }
 
     def bbox_volume(bbox):
-        """Calcola il volume di una bbox"""
+        """Compute bbox volume."""
         return ((bbox["x_max"] - bbox["x_min"]) *
                 (bbox["y_max"] - bbox["y_min"]) *
                 (bbox["z_max"] - bbox["z_min"]))
 
-    # Processa le bbox: se troppo grandi, riducile
+    # Process bboxes: if too large, shrink them
     processed_bboxes = []
     for bbox in bboxes_list:
         vol = bbox_volume(bbox)
         if vol > MAX_VOLUME_THRESHOLD:
-            # Bbox troppo grande, usa versione ridotta per calcolo massimi
+            # Bbox too large; use reduced version for extrema
             processed_bbox = shrink_bbox(bbox, BBOX_REDUCTION_RATIO)
-            print(f"   [POV] Bbox volume {vol:.3f} m³ > {MAX_VOLUME_THRESHOLD} m³ → ridotta del {BBOX_REDUCTION_RATIO*100:.0f}%")
+            print(f"   [POV] Bbox volume {vol:.3f} m³ > {MAX_VOLUME_THRESHOLD} m³ → reduced by {BBOX_REDUCTION_RATIO*100:.0f}%")
         else:
             processed_bbox = bbox
         processed_bboxes.append(processed_bbox)
 
-    # Trova i limiti che contengono TUTTE le bbox (processate)
+    # Find limits covering ALL processed bboxes
     x_min = min(bbox["x_min"] for bbox in processed_bboxes)
     x_max = max(bbox["x_max"] for bbox in processed_bboxes)
     y_min = min(bbox["y_min"] for bbox in processed_bboxes)
@@ -196,40 +196,29 @@ def compute_pov_volume(bboxes_list, expansion_ratio=VOLUME_EXPANSION_RATIO):
     z_min = min(bbox["z_min"] for bbox in processed_bboxes)
     z_max = max(bbox["z_max"] for bbox in processed_bboxes)
 
-    # Calcola dimensioni del POV
+    # Compute POV dimensions
     x_size = x_max - x_min
     y_size = y_max - y_min
     z_size = z_max - z_min
 
-    # Espandi proporzionalmente
+    # Proportional expansion
     x_expansion = x_size * expansion_ratio
     y_expansion = y_size * expansion_ratio
     z_expansion = z_size * expansion_ratio
 
-    # Espansione minima per evitare volumi troppo piccoli (es. singolo oggetto)
-    MIN_EXPANSION = 0.1 # 10 cm minimo
+    # Minimum expansion to avoid tiny volumes (e.g., single object)
+    MIN_EXPANSION = 0.1 # minimum 10 cm
     x_expansion = max(x_expansion, MIN_EXPANSION)
     y_expansion = max(y_expansion, MIN_EXPANSION)
     z_expansion = max(z_expansion, MIN_EXPANSION)
 
-    # NUOVO: Ottimizza il volume per coprire TUTTA la depth disponibile senza andare oltre
-    # z_max rappresenta il punto più lontano visto dalla camera
-    # Vogliamo espandere il volume Z al massimo possibile (tutta la depth vista)
-    # ma NON oltre z_max (altrimenti il volume eccede la percezione disponibile)
-
-    # Il volume dovrebbe arrivare FINO a z_max (espandere al massimo)
-    # ma se z_max + z_expansion supera z_max, significa che stiamo andando oltre
-    # In questo caso, impostiamo z_expansion = 0 per non espandere oltre la depth vista
-
-    # Calcola quanto possiamo espandere senza superare la depth massima vista
-    # In pratica, vogliamo che z_max_finale = z_max (nessuna espansione oltre)
-    # Quindi z_expansion sul lato destro (z_max) dovrebbe essere 0
-    # Ma possiamo comunque espandere verso z_min
+    # Optimize Z to cover the full seen depth without exceeding it.
+    # z_max is the farthest depth; do not expand beyond z_max.
 
     pov_z_min = z_min - z_expansion
-    pov_z_max = z_max  # NON espandiamo oltre z_max (la depth massima vista)
+    pov_z_max = z_max  # Do not expand beyond the farthest seen depth
 
-    print(f"   [POV] Volume Z ottimizzato: [{pov_z_min:.3f}m, {pov_z_max:.3f}m] (depth max vista: {z_max:.3f}m)")
+    print(f"   [POV] Optimized Z volume: [{pov_z_min:.3f}m, {pov_z_max:.3f}m] (max seen depth: {z_max:.3f}m)")
 
     return {
         "x_min": x_min - x_expansion,
@@ -243,21 +232,21 @@ def compute_pov_volume(bboxes_list, expansion_ratio=VOLUME_EXPANSION_RATIO):
 
 def expand_bbox_for_search(bbox, expansion_ratio=VOLUME_EXPANSION_RATIO):
     """
-    MODIFICATO: Espande un bounding box in modo proporzionale alle sue dimensioni.
+    Expand a bounding box proportionally to its size.
     
     Args:
-        bbox: dict con chiavi x_min, x_max, y_min, y_max, z_min, z_max
-        expansion_ratio: percentuale di espansione rispetto alle dimensioni (default 0.2 = 20%)
+        bbox: dict with keys x_min, x_max, y_min, y_max, z_min, z_max
+        expansion_ratio: expansion percentage relative to dimensions (default 0.2 = 20%)
 
     Returns:
-        dict: bounding box espanso
+        dict: expanded bounding box
     """
-    # Calcola dimensioni attuali
+    # Compute current dimensions
     x_size = bbox["x_max"] - bbox["x_min"]
     y_size = bbox["y_max"] - bbox["y_min"]
     z_size = bbox["z_max"] - bbox["z_min"]
     
-    # Calcola espansione proporzionale per ogni asse
+    # Compute proportional expansion for each axis
     x_expansion = x_size * expansion_ratio
     y_expansion = y_size * expansion_ratio
     z_expansion = z_size * expansion_ratio
@@ -274,19 +263,19 @@ def expand_bbox_for_search(bbox, expansion_ratio=VOLUME_EXPANSION_RATIO):
 
 def bbox_intersects_volume(bbox, volume):
     """
-    NEW_MERGE (from ROS1): Controlla se un bounding box interseca un volume di ricerca.
+    Check if a bounding box intersects a search volume.
 
     Args:
-        bbox: bounding box dell'oggetto persistente
-        volume: volume di ricerca espanso
+        bbox: bounding box of the persistent object
+        volume: expanded search volume
 
     Returns:
-        bool: True se c'è intersezione
+        bool: True if they intersect
     """
     if bbox is None:
         return False
 
-    # Controlla se NON c'è sovrapposizione (then negate)
+    # Check no overlap (then negate)
     no_overlap = (
         bbox["x_max"] < volume["x_min"] or bbox["x_min"] > volume["x_max"] or
         bbox["y_max"] < volume["y_min"] or bbox["y_min"] > volume["y_max"] or
@@ -298,28 +287,27 @@ def bbox_intersects_volume(bbox, volume):
 
 def bbox_centroid_in_volume(bbox, volume):
     """
-    NUOVO: Controlla se il CENTROIDE di un bounding box è dentro un volume.
+    Check whether the centroid of a bounding box lies inside a volume.
 
-    Più conservativo di bbox_intersects_volume: oggetti grandi (es. divano)
-    con solo un piccolo angolo nel POV non verranno eliminati se il loro
-    centro è fuori dal volume.
+    More conservative than bbox_intersects_volume: large objects (e.g., a sofa)
+    that barely intersect the POV will not be removed if their centroid is outside.
 
     Args:
-        bbox: bounding box dell'oggetto (dict con x_min, x_max, y_min, y_max, z_min, z_max)
-        volume: volume di ricerca (dict con x_min, x_max, y_min, y_max, z_min, z_max)
+        bbox: object bounding box (dict with x_min, x_max, y_min, y_max, z_min, z_max)
+        volume: search volume (dict with x_min, x_max, y_min, y_max, z_min, z_max)
 
     Returns:
-        bool: True se il centroide della bbox è completamente dentro il volume
+        bool: True if the bbox centroid is fully inside the volume
     """
     if bbox is None:
         return False
 
-    # Calcola il centroide della bbox
+    # Compute bbox centroid
     centroid_x = (bbox["x_min"] + bbox["x_max"]) / 2.0
     centroid_y = (bbox["y_min"] + bbox["y_max"]) / 2.0
     centroid_z = (bbox["z_min"] + bbox["z_max"]) / 2.0
 
-    # Controlla se il centroide è dentro il volume
+    # Check whether the centroid is inside the volume
     is_inside = (
         volume["x_min"] <= centroid_x <= volume["x_max"] and
         volume["y_min"] <= centroid_y <= volume["y_max"] and
@@ -331,8 +319,7 @@ def bbox_centroid_in_volume(bbox, volume):
 
 def save_persistent_perceptions(node):
     """
-    NEW_MERGE: Salva persistent_perceptions su file JSON.
-    Mantiene persistenza tra esecuzioni del nodo.
+    Save persistent_perceptions to JSON to persist across node runs.
     """
     output_dir = os.path.join(PROJECT_ROOT, "output")
     os.makedirs(output_dir, exist_ok=True)
@@ -353,20 +340,20 @@ def save_persistent_perceptions(node):
         json.dump(data, f, indent=4)
 
     # ROS2_MIGRATION
-    msg = f"Salvati {len(data)} oggetti in persistent_perception.json"
+    msg = f"Saved {len(data)} objects to persistent_perception.json"
     node.log_both('info', msg)
     labels = [obj["label"] for obj in data]
-    node.log_both('info', f"Label oggetti salvati: {labels}")
+    node.log_both('info', f"Saved object labels: {labels}")
 
-    # Log dettagliato su file
+    # Detailed file log
     for obj_data in data:
         node.log_both('debug', f"  - {obj_data['label']}: {obj_data['description']}")
 
 
 def save_uncertain_objects(node):
     """
-    Salva uncertain_objects su file di testo.
-    Traccia oggetti potenzialmente spostati o duplicati.
+    Save uncertain_objects to a text file.
+    Tracks potentially moved or duplicated objects.
     """
     output_dir = os.path.join(PROJECT_ROOT, "output")
     os.makedirs(output_dir, exist_ok=True)
@@ -374,19 +361,19 @@ def save_uncertain_objects(node):
 
     with open(save_path, "w") as f:
         f.write("=" * 80 + "\n")
-        f.write(f"OGGETTI INCERTI - Aggiornato: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+        f.write(f"UNCERTAIN OBJECTS - Updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
         f.write("=" * 80 + "\n\n")
 
         if not node.uncertain_objects:
-            f.write("Nessun oggetto incerto al momento.\n")
+            f.write("No uncertain objects at the moment.\n")
         else:
-            f.write(f"Totale oggetti incerti: {len(node.uncertain_objects)}\n\n")
+            f.write(f"Total uncertain objects: {len(node.uncertain_objects)}\n\n")
 
             for i, obj in enumerate(node.uncertain_objects, 1):
                 f.write(f"{i}. {obj.label}\n")
-                f.write(f"   Descrizione: {obj.description}\n")
-                f.write(f"   Colore: {obj.color}\n")
-                f.write(f"   Materiale: {obj.material}\n")
+                f.write(f"   Description: {obj.description}\n")
+                f.write(f"   Color: {obj.color}\n")
+                f.write(f"   Material: {obj.material}\n")
 
                 if obj.bbox:
                     x_center = (obj.bbox['x_min'] + obj.bbox['x_max']) / 2.0
@@ -397,14 +384,14 @@ def save_uncertain_objects(node):
                     y_size = obj.bbox["y_max"] - obj.bbox["y_min"]
                     z_size = obj.bbox["z_max"] - obj.bbox["z_min"]
 
-                    f.write(f"   Posizione centro: X={x_center:.3f}, Y={y_center:.3f}, Z={z_center:.3f}\n")
-                    f.write(f"   Dimensioni: {x_size:.3f}m x {y_size:.3f}m x {z_size:.3f}m\n")
+                    f.write(f"   Center position: X={x_center:.3f}, Y={y_center:.3f}, Z={z_center:.3f}\n")
+                    f.write(f"   Dimensions: {x_size:.3f}m x {y_size:.3f}m x {z_size:.3f}m\n")
                 else:
-                    f.write(f"   Bbox: NON DISPONIBILE\n")
+                    f.write(f"   Bbox: NOT AVAILABLE\n")
 
                 f.write("\n" + "-" * 80 + "\n\n")
 
-    node.log_both('info', f"Salvati {len(node.uncertain_objects)} oggetti incerti in uncertain_objects.txt")
+    node.log_both('info', f"Saved {len(node.uncertain_objects)} uncertain objects in uncertain_objects.txt")
 
 
 
@@ -414,15 +401,16 @@ class ObjectManagerNode(Node):
 
         self.file_logger = module_logger
         self.file_logger.info("=== ObjectManagerNode Initialized ===")
-        self.get_logger().info(f"Log salvato in: {log_file}")
+        self.get_logger().info(f"Log saved in: {log_file}")
 
-        # Variabili di istanza
-        self.exploration_mode = True  # Controllato da thread separato
+        # Instance variables
+        self.exploration_mode = True  # Controlled by separate thread
+        self.seen_again = False  # Flag to detect when an object is seen again
 
         self.latest_bboxes = {}
 
         # Uncertain objects list
-        self.uncertain_objects = []  
+        self.uncertain_objects = []
 
         qos_latch = QoSProfile(depth=10, durability=DurabilityPolicy.TRANSIENT_LOCAL)
         qos_standard = QoSProfile(depth=10)
@@ -434,7 +422,7 @@ class ObjectManagerNode(Node):
         self.create_subscription(Bbox3dArray, "/bbox_3d", self.bbox_callback, qos_standard)
         self.create_subscription(ObjectDescriptionArray, "/object_descriptions", self.description_callback, qos_standard)
 
-        self._bbox_timer = self.create_timer(2.0, self.periodic_bbox_publisher)  
+        self._bbox_timer = self.create_timer(2.0, self.periodic_bbox_publisher)
 
         exploration_thread = threading.Thread(target=self.wait_for_exploration_end, daemon=True)
         exploration_thread.start()
@@ -470,11 +458,17 @@ class ObjectManagerNode(Node):
     def wait_for_exploration_end(self):
 
         self.log_both('warn', "=" * 60)
-        self.log_both('warn', "[EXPLORATION] Il robot is in EXPLORATION.")
-        input()  # Wait for user to press Enter
+        self.log_both('warn', "[EXPLORATION] The robot is in EXPLORATION.")
+        self.log_both('warn', "[EXPLORATION] Will switch to TRACKING when an object is seen again.")
+        self.log_both('warn', "=" * 60)
+
+        # Wait until an object is seen again
+        while not self.seen_again:
+            time.sleep(0.1)  # Check every 100ms
 
         self.log_both('warn', "=" * 60)
         self.log_both('warn', "[EXPLORATION] Exploration phase ENDED!")
+        self.log_both('warn', "[EXPLORATION] An object has been SEEN AGAIN - switching to TRACKING")
         self.log_both('warn', "[TRACKING] Tracking mode ACTIVATED")
         self.log_both('warn', "=" * 60)
         print("\n\n\n")
@@ -504,6 +498,7 @@ class ObjectManagerNode(Node):
 
         for description in msg.descriptions:
             label = description.label
+            label_base = label.split('#')[0] if '#' in label else label
             color = description.color
             material = description.material
             description_text = description.description
@@ -535,8 +530,8 @@ class ObjectManagerNode(Node):
                 "description": description_text
             }
 
-            print(f"   Old key (solo label): {old_key}...")
-            print(f"   New key (completa):   {new_key}...")
+            print(f"   Old key (label only): {old_key}...")
+            print(f"   New key (complete):   {new_key}...")
         
             matched_bboxes.append(bbox)
 
@@ -546,16 +541,11 @@ class ObjectManagerNode(Node):
             if in_exploration:
                 print(f"3. [EXPLORATION] Comparing with {len(wm.persistent_perceptions)} persistent objects using lost_similarity...")
                 for obj in wm.persistent_perceptions:
-                    if not hasattr(obj, "embedding"):
-                        obj.embedding = get_embedding(client, obj.description)
-
-                    if obj.embedding is None:
-                        continue
-
                     # Use lost_similarity
+                    obj_label_base = obj.label.split('#')[0] if '#' in obj.label else obj.label
                     similarity = lost_similarity(
                         world2vec,
-                        label, obj.label,
+                        label_base, obj_label_base,
                         color, obj.color,
                         material, obj.material,
                         description_embedding, obj.embedding
@@ -576,6 +566,12 @@ class ObjectManagerNode(Node):
                                 current_perception_objects.append(obj)
                                 obj.bbox = bbox
                                 print(f"FULL MATCH! '{label}' = '{obj.label}' (lost_sim={similarity:.3f}, IoU={iou:.3f})")
+
+                                # Set flag to trigger transition to tracking
+                                if not self.seen_again:
+                                    self.seen_again = True
+                                    self.log_both('warn', f"[EXPLORATION] Object '{label}' seen again! Preparing to switch to TRACKING...")
+
                                 break
 
             # ======== Tracking ========
@@ -596,9 +592,10 @@ class ObjectManagerNode(Node):
                         continue
 
                     # Use lost_similarity
+                    obj_label_base = obj.label.split('#')[0] if '#' in obj.label else obj.label
                     similarity = lost_similarity(
                         world2vec,
-                        label, obj.label,
+                        label_base, obj_label_base,
                         color, obj.color,
                         material, obj.material,
                         description_embedding, obj.embedding
@@ -612,7 +609,7 @@ class ObjectManagerNode(Node):
                         best_score = similarity
                         best_match = obj
 
-                # Se trovato match, aggiorna
+                # If match found, update
                 if best_match:
                     print(f"Best match found: '{best_match.label}' (score={best_score:.2f})")
                     already_seen = True
@@ -705,7 +702,7 @@ class ObjectManagerNode(Node):
                 z_size = bbox["z_max"] - bbox["z_min"]
                 volume = x_size * y_size * z_size
 
-                mode_tag = "[ESPLORAZIONE]" if in_exploration else f"[TRACKING STEP {self.tracking_step_counter}]"
+                mode_tag = "[EXPLORATION]" if in_exploration else f"[TRACKING STEP {self.tracking_step_counter}]"
                 print(f"{mode_tag} New object '{label}' added to persistent_perceptions (bbox volume: {volume:.3f} m³)")
                 save_persistent_perceptions(self)
 
@@ -778,11 +775,11 @@ class ObjectManagerNode(Node):
                 objects_modified = True
                 save_persistent_perceptions(self)
             else:
-                print(f"✓ Nessun oggetto da rimuovere in questo step")
+                print(f"✓ No objects to remove in this step")
 
-            # Verifica uncertain_objects per rimozione definitiva
+            # Check uncertain_objects for definitive removal
             print(f"\n{'─'*60}")
-            print(f"[TRACKING STEP {self.tracking_step_counter}] Verifica oggetti incerti con POV VOLUME...")
+            print(f"[TRACKING STEP {self.tracking_step_counter}] Verifying uncertain objects with POV VOLUME...")
             print(f"{'─'*60}")
             if description_recieved and pov_volume:
                 for uncertain_obj in self.uncertain_objects:
@@ -811,6 +808,9 @@ class ObjectManagerNode(Node):
             publish_persistent_bboxes(self, wm, self.persistent_bbox_pub)
             publish_uncertain_bboxes(self, self.uncertain_objects, self.uncertain_bboxes_pub)
             save_uncertain_objects(self)
+
+        # Prevent reusing stale bboxes if no new bbox message arrives
+        self.latest_bboxes.clear()
 
 
 

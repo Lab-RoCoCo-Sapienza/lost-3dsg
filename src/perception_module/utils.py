@@ -219,8 +219,9 @@ def get_distinct_color(index):
 
 def apply_nms(bboxs, labels, scores, iou_threshold=0.5):
     """
-    Apply Non-Maximum Suppression to remove overlapping bounding boxes.
-    For each group of overlapping boxes, keep only the one with the highest score.
+    Apply CLASS-AWARE Non-Maximum Suppression to remove overlapping bounding boxes.
+    NMS is applied SEPARATELY for each class, so boxes of different classes are never suppressed.
+    This prevents removing a "book" just because it overlaps with a "table".
 
     Args:
         bboxs: List of bounding boxes [x1, y1, x2, y2]
@@ -237,47 +238,70 @@ def apply_nms(bboxs, labels, scores, iou_threshold=0.5):
     # Convert to numpy arrays for easier manipulation
     bboxs = np.array(bboxs)
     scores = np.array(scores)
+    labels = np.array(labels)
 
-    # Calculate areas of all bounding boxes
-    x1 = bboxs[:, 0]
-    y1 = bboxs[:, 1]
-    x2 = bboxs[:, 2]
-    y2 = bboxs[:, 3]
-    areas = (x2 - x1) * (y2 - y1)
+    # Apply NMS separately for each unique class
+    unique_labels = np.unique(labels)
+    all_keep_indices = []
 
-    # Sort indices by descending score
-    order = scores.argsort()[::-1]
+    for label in unique_labels:
+        # Get indices for this class only
+        class_mask = labels == label
+        class_indices = np.where(class_mask)[0]
 
-    keep = []
-    while len(order) > 0:
-        # Take element with highest score
-        i = order[0]
-        keep.append(i)
+        if len(class_indices) == 0:
+            continue
 
-        if len(order) == 1:
-            break
+        class_bboxs = bboxs[class_indices]
+        class_scores = scores[class_indices]
 
-        # Calculate IoU with all other boxes
-        xx1 = np.maximum(x1[i], x1[order[1:]])
-        yy1 = np.maximum(y1[i], y1[order[1:]])
-        xx2 = np.minimum(x2[i], x2[order[1:]])
-        yy2 = np.minimum(y2[i], y2[order[1:]])
+        # Calculate areas
+        x1 = class_bboxs[:, 0]
+        y1 = class_bboxs[:, 1]
+        x2 = class_bboxs[:, 2]
+        y2 = class_bboxs[:, 3]
+        areas = (x2 - x1) * (y2 - y1)
 
-        w = np.maximum(0.0, xx2 - xx1)
-        h = np.maximum(0.0, yy2 - yy1)
-        intersection = w * h
+        # Sort by score (descending)
+        order = class_scores.argsort()[::-1]
 
-        # IoU = intersection / union
-        iou = intersection / (areas[i] + areas[order[1:]] - intersection)
+        keep = []
+        while len(order) > 0:
+            # Take element with highest score
+            i = order[0]
+            keep.append(i)
 
-        # Keep only boxes with IoU below threshold
-        inds = np.where(iou <= iou_threshold)[0]
-        order = order[inds + 1]
+            if len(order) == 1:
+                break
+
+            # Calculate IoU with all other boxes OF THE SAME CLASS
+            xx1 = np.maximum(x1[i], x1[order[1:]])
+            yy1 = np.maximum(y1[i], y1[order[1:]])
+            xx2 = np.minimum(x2[i], x2[order[1:]])
+            yy2 = np.minimum(y2[i], y2[order[1:]])
+
+            w = np.maximum(0.0, xx2 - xx1)
+            h = np.maximum(0.0, yy2 - yy1)
+            intersection = w * h
+
+            # IoU = intersection / union
+            iou = intersection / (areas[i] + areas[order[1:]] - intersection)
+
+            # Keep only boxes with IoU below threshold
+            inds = np.where(iou <= iou_threshold)[0]
+            order = order[inds + 1]
+
+        # Map back to original indices
+        class_keep_indices = class_indices[keep]
+        all_keep_indices.extend(class_keep_indices.tolist())
+
+    # Sort by original order to maintain consistency
+    all_keep_indices = sorted(all_keep_indices)
 
     # Return only the kept boxes
-    bboxs_filtered = bboxs[keep].tolist()
-    labels_filtered = [labels[i] for i in keep]
-    scores_filtered = scores[keep].tolist()
+    bboxs_filtered = bboxs[all_keep_indices].tolist()
+    labels_filtered = labels[all_keep_indices].tolist()
+    scores_filtered = scores[all_keep_indices].tolist()
 
     return bboxs_filtered, labels_filtered, scores_filtered
 

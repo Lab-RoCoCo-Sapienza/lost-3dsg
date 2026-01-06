@@ -937,12 +937,12 @@ def publish_persistent_bboxes(node, wm, persistent_bboxes_pub=None):
             marker.pose.position.z = (obj.bbox["z_min"] + obj.bbox["z_max"]) / 2.0
             marker.pose.orientation.w = 1.0
 
-            # Dimensioni
+            # Dimensions
             marker.scale.x = obj.bbox["x_max"] - obj.bbox["x_min"]
             marker.scale.y = obj.bbox["y_max"] - obj.bbox["y_min"]
             marker.scale.z = obj.bbox["z_max"] - obj.bbox["z_min"]
 
-            # Colore (verde semi-trasparente)
+            # Color (semi-transparent green)
             marker.color.r = 0.0
             marker.color.g = 1.0
             marker.color.b = 0.0
@@ -952,27 +952,27 @@ def publish_persistent_bboxes(node, wm, persistent_bboxes_pub=None):
             marker.lifetime = Duration(seconds=0).to_msg()
             marker_array.markers.append(marker)
 
-            # Marker per il testo (label)
+            # Marker for text (label)
             text_marker = Marker()
             text_marker.header.frame_id = "map"
             # ROS2_MIGRATION
             text_marker.header.stamp = node.get_clock().now().to_msg()
             text_marker.ns = "persistent_labels"
-            text_marker.id = i * 2 + 1  # ID dispari per i testi
+            text_marker.id = i * 2 + 1  # Odd ID for texts
             text_marker.type = Marker.TEXT_VIEW_FACING
             text_marker.action = Marker.ADD
 
-            # Posizione (sopra il bbox)
+            # Position (above the bbox)
             text_marker.pose.position.x = marker.pose.position.x
             text_marker.pose.position.y = marker.pose.position.y
             text_marker.pose.position.z = obj.bbox["z_max"] + 0.1
             text_marker.pose.orientation.w = 1.0
 
-            # Testo
+            # Text
             text_marker.text = obj.label
-            text_marker.scale.z = 0.1  # Altezza del testo
+            text_marker.scale.z = 0.1  # Text height
 
-            # Colore (bianco)
+            # Color (white)
             text_marker.color.r = 1.0
             text_marker.color.g = 1.0
             text_marker.color.b = 1.0
@@ -982,13 +982,13 @@ def publish_persistent_bboxes(node, wm, persistent_bboxes_pub=None):
             text_marker.lifetime = Duration(seconds=0).to_msg()
             marker_array.markers.append(text_marker)
 
-        # Pubblica
+        # Publish
         persistent_bboxes_pub.publish(marker_array)
 
 def publish_uncertain_bboxes(node, uncertain_objects, uncertain_bbox_pub):
         """
-        Pubblica le bounding box degli oggetti incerti (ARANCIONE) su RViz.
-        Questi oggetti rappresentano posizioni vecchie di oggetti che sono stati spostati > 80cm.
+        Publish bounding boxes of uncertain objects (ORANGE) on RViz.
+        These objects represent old positions of objects that have been moved > 80cm.
         """
         if not uncertain_objects:
             return
@@ -1000,27 +1000,27 @@ def publish_uncertain_bboxes(node, uncertain_objects, uncertain_bbox_pub):
             if obj.bbox is None:
                 continue
 
-            # Marker per il cubo (bounding box ARANCIONE)
+            # Marker for cube (ORANGE bounding box)
             marker = Marker()
             marker.header.frame_id = "map"
             marker.header.stamp = node.get_clock().now().to_msg()
             marker.ns = "uncertain_bboxes"
-            marker.id = i * 2  # ID pari per i cubi
+            marker.id = i * 2  # Even ID for cubes
             marker.type = Marker.CUBE
             marker.action = Marker.ADD
 
-            # Posizione (centro del bbox)
+            # Position (bbox center)
             marker.pose.position.x = (obj.bbox["x_min"] + obj.bbox["x_max"]) / 2.0
             marker.pose.position.y = (obj.bbox["y_min"] + obj.bbox["y_max"]) / 2.0
             marker.pose.position.z = (obj.bbox["z_min"] + obj.bbox["z_max"]) / 2.0
             marker.pose.orientation.w = 1.0
 
-            # Dimensioni
+            # Dimensions
             marker.scale.x = obj.bbox["x_max"] - obj.bbox["x_min"]
             marker.scale.y = obj.bbox["y_max"] - obj.bbox["y_min"]
             marker.scale.z = obj.bbox["z_max"] - obj.bbox["z_min"]
 
-            # Colore (ARANCIONE semi-trasparente)
+            # Color (semi-transparent ORANGE)
             marker.color.r = 1.0
             marker.color.g = 0.6
             marker.color.b = 0.0
@@ -1029,26 +1029,26 @@ def publish_uncertain_bboxes(node, uncertain_objects, uncertain_bbox_pub):
             marker.lifetime = Duration(seconds=0).to_msg()
             marker_array.markers.append(marker)
 
-            # Marker per il testo (label)
+            # Marker for text (label)
             text_marker = Marker()
             text_marker.header.frame_id = "map"
             text_marker.header.stamp = node.get_clock().now().to_msg()
             text_marker.ns = "uncertain_labels"
-            text_marker.id = i * 2 + 1  # ID dispari per i testi
+            text_marker.id = i * 2 + 1  # Odd ID for texts
             text_marker.type = Marker.TEXT_VIEW_FACING
             text_marker.action = Marker.ADD
 
-            # Posizione (sopra il bbox)
+            # Position (above the bbox)
             text_marker.pose.position.x = marker.pose.position.x
             text_marker.pose.position.y = marker.pose.position.y
             text_marker.pose.position.z = obj.bbox["z_max"] + 0.1
             text_marker.pose.orientation.w = 1.0
 
-            # Testo
+            # Text
             text_marker.text = f"{obj.label} [UNCERTAIN]"
-            text_marker.scale.z = 0.1  # Altezza del testo
+            text_marker.scale.z = 0.1  # Text height
 
-            # Colore (ARANCIONE)
+            # Color (ORANGE)
             text_marker.color.r = 1.0
             text_marker.color.g = 0.6
             text_marker.color.b = 0.0
@@ -1057,7 +1057,7 @@ def publish_uncertain_bboxes(node, uncertain_objects, uncertain_bbox_pub):
             text_marker.lifetime = Duration(seconds=0).to_msg()
             marker_array.markers.append(text_marker)
 
-        # Pubblica
+        # Publish
         uncertain_bbox_pub.publish(marker_array)
         
 

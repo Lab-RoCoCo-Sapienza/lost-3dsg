@@ -5,7 +5,7 @@ import webcolors
 EMBEDDING_MODEL = "text-embedding-3-small"
 
 def semantic_similarity(word2vec_model, word1: str, word2: str) -> float:
-    """Calcola la similarità semantica tra due parole usando Word2Vec."""
+    """Calculate semantic similarity between two words using Word2Vec."""
     word1 = word1.lower().strip()
     word2 = word2.lower().strip()
 
@@ -42,13 +42,13 @@ def semantic_similarity(word2vec_model, word1: str, word2: str) -> float:
 
 def color_name_to_rgb(color_name: str) -> tuple:
     """
-    Converte il nome di un colore in valori RGB normalizzati [0-1].
+    Convert color name to normalized RGB values [0-1].
 
     Args:
-        color_name: Nome del colore (es. 'red', 'blue', 'dark green')
+        color_name: Color name (e.g. 'red', 'blue', 'dark green')
 
     Returns:
-        tuple: (r, g, b) normalizzati [0-1], o None se il colore non è riconosciuto
+        tuple: (r, g, b) normalized [0-1], or None if color is not recognized
     """
     if not color_name or color_name.strip() == "":
         return None
@@ -56,13 +56,13 @@ def color_name_to_rgb(color_name: str) -> tuple:
     color_name = color_name.lower().strip()
 
     try:
-        # Prova con webcolors (supporta nomi CSS standard)
+        # Try with webcolors (supports standard CSS names)
         rgb = webcolors.name_to_rgb(color_name)
         return (rgb.red / 255.0, rgb.green / 255.0, rgb.blue / 255.0)
     except:
         pass
 
-    # Fallback: dizionario colori base
+    # Fallback: basic color dictionary
     BASIC_COLORS = {
         'white': (255, 255, 255),
         'black': (0, 0, 0),
@@ -139,8 +139,8 @@ def get_embedding(client, text):
         resp = client.embeddings.create(model=EMBEDDING_MODEL, input=text)
         return np.array(resp.data[0].embedding)
     except Exception as e:
-        print(f"Errore durante la creazione dell'embedding: {e}")
-        print("\n\n\n")  # Spazi per il debug
+        print(f"Error during embedding creation: {e}")
+        print("\n\n\n")  # Spaces for debugging
         return None
 
 def cosine_similarity(a, b):
@@ -150,45 +150,45 @@ def cosine_similarity(a, b):
 
 def lost_similarity(word2vec_model, label1, label2, color1, color2, material1, material2, desc1, desc2):
     """
-    Calcola la similarità complessiva tra due oggetti usando:
+    Calculate overall similarity between two objects using:
     lost_similarity = alpha*label_sim + beta*color_sim + gamma*material_sim + delta*desc_sim
 
-    MODIFICATO v7: Pesi ottimizzati per dare più importanza alla descrizione
+    MODIFIED v7: Optimized weights to give more importance to description
     - alpha (label):       0.25 (25%)
-    - beta (color):        0.20 (20%) - USA DISTANZA RGB invece di word2vec
-    - gamma (material):    0.15 (15%) - ridotto perché "paper" matchava troppo
-    - delta (description): 0.40 (40%) - aumentato per distinguere oggetti simili
+    - beta (color):        0.20 (20%) - USES RGB DISTANCE instead of word2vec
+    - gamma (material):    0.15 (15%) - reduced because "paper" matched too much
+    - delta (description): 0.40 (40%) - increased to distinguish similar objects
 
     Args:
-        word2vec_model: Modello word2vec per similarità semantica
-        label1, label2: Label dei due oggetti
-        color1, color2: Colori dei due oggetti (stringhe nome colore)
-        material1, material2: Materiali dei due oggetti
-        desc1, desc2: Descrizioni dei due oggetti (embedding)
+        word2vec_model: Word2vec model for semantic similarity
+        label1, label2: Labels of the two objects
+        color1, color2: Colors of the two objects (color name strings)
+        material1, material2: Materials of the two objects
+        desc1, desc2: Descriptions of the two objects (embeddings)
 
     Returns:
-        float: Similarità complessiva [0, 1]
+        float: Overall similarity [0, 1]
     """
     alpha = 0.15   # label weight
     beta = 0.30    # color weight
-    gamma = 0.15   # material weight (ridotto da 0.25)
-    delta = 0.40   # description weight (aumentato da 0.25)
+    gamma = 0.15   # material weight (reduced from 0.25)
+    delta = 0.40   # description weight (increased from 0.25)
 
-    # Calcola le similarità individuali
+    # Calculate individual similarities
     label_sim = semantic_similarity(word2vec_model, label1, label2)
 
-    # MODIFICATO: Usa distanza RGB per i colori invece di word2vec (con fallback)
+    # MODIFIED: Use RGB distance for colors instead of word2vec (with fallback)
     color_sim = color_similarity_rgb(color1, color2, word2vec_model)
 
     material_sim = semantic_similarity(word2vec_model, material1, material2)
 
-    # Per la descrizione usa cosine similarity tra embedding
+    # For description, use cosine similarity between embeddings
     if desc1 is not None and desc2 is not None:
         desc_sim = cosine_similarity(desc1, desc2)
     else:
         desc_sim = 0.0
 
-    # Calcola la similarità pesata
+    # Calculate weighted similarity
     total_sim = alpha * label_sim + beta * color_sim + gamma * material_sim + delta * desc_sim
 
     return total_sim

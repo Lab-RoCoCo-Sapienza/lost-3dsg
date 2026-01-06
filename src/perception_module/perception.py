@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# Sopprimi warning
+# Suppress warnings
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -25,6 +25,7 @@ from cv_utils import _clear_markers
 import time
 from dataclasses import dataclass
 from typing import Tuple
+from collections import Counter
 from matplotlib.colors import to_rgb
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import logging
@@ -89,7 +90,7 @@ class DetectObjects(Node):
 
         self.pub_image = self.create_publisher(Image, "/image_with_bb", qos_latch)
         self.COLORS = ['red', 'green', 'blue', 'magenta', 'gray', 'yellow'] * 3
-        self.detector = OWLv2()
+        self.detector = DINO()
         self.vitsam = VitSam(utils.ENCODER_VITSAM_PATH, utils.DECODER_VITSAM_PATH)
 
         self.centroid_pub = self.create_publisher(CentroidArray, "/centroids_custom", qos_latch)
@@ -105,7 +106,7 @@ class DetectObjects(Node):
         self.time_stationary_start = None  
         self.last_detection_time = None 
         self.first_detection_done = False  
-        self.min_stationary_after_movement = 2.0  
+        self.min_stationary_after_movement = 5.0  
 
         # USED DURING TEST PHASE
         self.manual_trigger_requested = False
@@ -182,16 +183,16 @@ class DetectObjects(Node):
         except Exception as e:
             self.get_logger().warn(f"Error clearing bbox: {e}")
 
-        # Resetta i contatori
+        # Reset counters
         if hasattr(self, '_centroid_marker_id_counter'):
             self._centroid_marker_id_counter = 0
         if hasattr(self, '_bbox_marker_id_counter'):
             self._bbox_marker_id_counter = 0
 
-        self.get_logger().info("Contatori marker resettati")
+        self.get_logger().info("Marker counters reset")
     
     def clear_accumulated_pointclouds(self):
-        """Cancella tutte le point clouds accumulate."""
+        """Clear all accumulated point clouds."""
         self.accumulated_points.clear()
         self.accumulated_labels.clear()
         self.pcl_object_id_counter = 0
@@ -262,7 +263,7 @@ class DetectObjects(Node):
                 self.get_logger().error(f"Error in publish_individual_pointclouds_by_id: {e}")
 
         except Exception as e:
-            self.get_logger().error(f"Errore publishing aggregated PointCloud2: {e}")
+            self.get_logger().error(f"Error publishing aggregated PointCloud2: {e}")
         
         return
     
@@ -356,7 +357,7 @@ class DetectObjects(Node):
                 "shape": obj_data.get("shape", "unknown")
             }
         except Exception as e:
-            self.get_logger().error(f"Errore VLM per {label}: {e}")
+            self.get_logger().error(f"VLM error for {label}: {e}")
             return {
                 "label": label,
                 "json_answer": "{}",
@@ -373,7 +374,7 @@ class DetectObjects(Node):
 
         if not self.is_stationary:
             # ROS2_MIGRATION
-            self.get_logger().warn("Robot in movimento all'inizio, annullo elaborazione")
+            self.get_logger().warn("Robot moving at the start, canceling processing")
             return
 
         # --- 1. Get synced data ---
@@ -498,9 +499,18 @@ class DetectObjects(Node):
         centroids_3d = []
         bboxes_3d = []
         labels1 = []
-        descriptions = []  
-        for idx, det in enumerate(detections):                
-            labels1.append(det.label)
+        descriptions = []
+
+        # Make labels unique per frame: add #<n> suffix only when duplicates exist
+        label_counts = Counter(det.label for det in detections)
+        label_seen = Counter()
+        for det in detections:
+            label_seen[det.label] += 1
+            if label_counts[det.label] > 1:
+                det.instance_label = f"{det.label}#{label_seen[det.label]}"
+            else:
+                det.instance_label = det.label
+            labels1.append(det.instance_label)
 
         # BBOX3D message
         msg = Bbox3dArray()
@@ -539,7 +549,7 @@ class DetectObjects(Node):
 
             crops_data.append({
                 'cropped': cropped,
-                'label': det.label,
+                'label': det.instance_label,
                 'idx': idx
             })
 
@@ -552,9 +562,9 @@ class DetectObjects(Node):
                 crop_msg.header.stamp = self.get_clock().now().to_msg()
                 crop_msg.header.frame_id = "camera"
                 self.pub_crop.publish(crop_msg)
-                self.get_logger().info(f"Pubblicato crop per {crop_info['label']}")
+                self.get_logger().info(f"Published crop for {crop_info['label']}")
             except Exception as e:
-                self.get_logger().error(f"Errore nella conversione del crop: {e}")
+                self.get_logger().error(f"Error in crop conversion: {e}")
 
         # --- 6. Call VLM for each cropped object in parallel ---
         with ThreadPoolExecutor(max_workers=min(4, len(crops_data))) as executor:
@@ -581,6 +591,7 @@ class DetectObjects(Node):
         for idx, det in enumerate(detections):
             result = vlm_results[idx] if idx < len(vlm_results) else None
             bbox_3d = bboxes_3d[idx] if idx < len(bboxes_3d) else None
+            final_label = getattr(det, "instance_label", det.label)
             
             if result is None:
                 descriptions.append({
@@ -599,7 +610,7 @@ class DetectObjects(Node):
             
             if bbox_3d is not None:
                 box_msg = Bbox3d()
-                box_msg.label = det.label
+                box_msg.label = final_label
                 box_msg.x_min = bbox_3d["x_min"]
                 box_msg.y_min = bbox_3d["y_min"]
                 box_msg.z_min = bbox_3d["z_min"]
@@ -615,8 +626,9 @@ class DetectObjects(Node):
         object_desc_array_msg.header = Header(stamp=self.get_clock().now().to_msg(), frame_id="map")
 
         for det, desc_dict in zip(detections, descriptions):
+            final_label = getattr(det, "instance_label", det.label)
             o = ObjectDescription()
-            o.label = det.label
+            o.label = final_label
             o.description = desc_dict["description"]
             o.color = desc_dict["color"]
             o.material = desc_dict["material"]
@@ -680,7 +692,7 @@ class DetectObjects(Node):
                 idx = msg.name.index(j)
                 pos = msg.position[idx]
 
-                # Calcola delta posizione
+                # Calculate position delta
                 if j in self.last_joint_positions:
                     delta = abs(pos - self.last_joint_positions[j])
                     deltas.append(delta)
@@ -696,10 +708,10 @@ class DetectObjects(Node):
         currently_stationary = media_delta < self.position_threshold
 
         if currently_stationary and not was_stationary:
-            # Robot just stopped after movement - do NOT reset timer here
-            # Timer will be reset after detection completes
+            # Robot just stopped after movement - START timer from now
             self.is_stationary = True
-            msg = f"Robot stopped. Timer will trigger next detection after {self.min_stationary_after_movement}s"
+            self.time_stationary_start = self.get_clock().now()
+            msg = f"Robot stopped. Timer started - next detection in {self.min_stationary_after_movement}s"
             self.log_both('info', msg)
         elif currently_stationary and was_stationary:
             # Already stationary - nothing to do, timer continues from last detection
@@ -711,6 +723,10 @@ class DetectObjects(Node):
                 self.log_both('warn', "MOVEMENT DETECTED! The robot has moved.")
                 self.file_logger.warning(f"  Average joint delta: {media_delta:.8f} rad")
                 self.processing_interrupted = True
+                # CRITICAL FIX: Reset timer when robot starts moving
+                # Otherwise timer keeps running and detection triggers too early when robot stops
+                self.time_stationary_start = None
+                self.log_both('info', "Timer reset due to movement - will restart when robot stops")
 
 
 def main(args=None):
@@ -743,7 +759,7 @@ def main(args=None):
     def timer_callback():
         current_time = node.get_clock().now()
 
-        # Caso TRIGGER MANUALE - ha priorità su tutto
+        # Case MANUAL TRIGGER - has priority over everything
         if node.manual_trigger_requested:
             if node.camera_data.get_synced_data() is not None:
                 node.log_both('info', "=== MANUAL PERCEPTION TRIGGERED ===")
@@ -755,7 +771,7 @@ def main(args=None):
                 node.time_stationary_start = completion_time  # Reset timer after detection
                 node.manual_trigger_requested = False  # Reset flag
             else:
-                node.get_logger().warn("Trigger ricevuto ma dati camera non disponibili - riprovo al prossimo ciclo")
+                node.get_logger().warn("Trigger received but camera data not available - retrying next cycle")
             return
 
         # Case 1: FIRST DETECTION
@@ -770,10 +786,10 @@ def main(args=None):
                 node.last_detection_time = completion_time
                 node.time_stationary_start = completion_time  # Reset timer after first detection
             else:
-                node.file_logger.debug("Attendo dati sincronizzati per prima detection...")
+                node.file_logger.debug("Waiting for synchronized data for first detection...")
             return
 
-        # Case 2: RE-DETECTION AFTER TIME INTERVAL (Set the time interval as you prefer) now for two seconds
+        # Case 2: RE-DETECTION AFTER TIME INTERVAL (Set the time interval as you prefer) now for five seconds
         print("________________ Timer callback: checking for re-detection conditions... __________________")
         print("Stationary:", node.is_stationary)
         print("Time stationary for : ", (current_time - node.time_stationary_start).nanoseconds / 1e9 if node.time_stationary_start else "N/A")
