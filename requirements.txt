@@ -1,41 +1,49 @@
-# Core dependencies
-numpy<2.0
-opencv-python
+# ========================================
+# LOST-3DSG Python Dependencies
+# ========================================
+# Install these with: pip3 install -r requirements.txt
+# 
+# ROS 2 dependencies should be installed via apt:
+#   sudo apt install ros-humble-rclpy ros-humble-cv-bridge \
+#     ros-humble-sensor-msgs ros-humble-visualization-msgs \
+#     ros-humble-tf2-ros ros-humble-geometry-msgs
+# ========================================
 
-# Deep Learning & Vision Models
-torch
-torchvision
-transformers
-ultralytics
-timm
-Pillow
+# Core Scientific Computing
+numpy>=1.24.0,<2.0
+opencv-python>=4.8.0
+scipy>=1.10.0
 
-# Segmentation & Detection
-segment-anything
+# Deep Learning Frameworks
+torch>=2.0.0
+torchvision>=0.15.0
+transformers>=4.30.0
+timm>=0.9.0
 
-# ONNX Runtime
-onnx
-onnxruntime
-onnxruntime-gpu
-onnxsim
+# Computer Vision & Detection
+ultralytics>=8.0.0
+segment-anything>=1.0
+Pillow>=10.0.0
 
-# NLP & Embeddings
-gensim
-openai
+# ONNX Runtime (choose CPU or GPU version)
+onnx>=1.14.0
+onnxruntime>=1.15.0
+# Uncomment the following line if you have CUDA GPU support:
+# onnxruntime-gpu>=1.15.0
+onnxsim>=0.4.0
 
-# Human tracking
-mediapipe
+# NLP & Language Models
+gensim>=4.3.0
+openai>=1.0.0
 
-# Web framework (if needed)
-flask
 
-# ROS 2 related (usually installed via apt, not pip)
-# rclpy - install via: apt install ros-humble-rclpy
-# cv-bridge - install via: apt install ros-humble-cv-bridge
-# sensor-msgs - install via: apt install ros-humble-sensor-msgs
-# visualization-msgs - install via: apt install ros-humble-visualization-msgs
-# tf2-ros - install via: apt install ros-humble-tf2-ros
-# sensor-msgs-py - install via: apt install ros-humble-sensor-msgs-py
+# Utilities
+PyYAML>=6.0
+tqdm>=4.65.0
 
-# Python standard library (no install needed)
-# json, os, time, threading, base64, struct
+# ========================================
+# Notes:
+# - For GPU acceleration, install CUDA toolkit first
+# - If you encounter memory issues, consider using CPU versions
+# - Some models may require additional downloads on first run
+# ========================================

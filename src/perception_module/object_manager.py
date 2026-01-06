@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 """
-Object Manager - Semantic and Spatial Tracking degli Oggetti Rilevati
-
-COSA FA? booh
+Object Manager - Semantic and Spatial Tracking of Perceived Objects
 
 """
-import rclpy, json, os, time, logging, threading, sys, webcolors
+import rclpy, json, os, time, logging, threading
 from rclpy.node import Node
 from rclpy.duration import Duration
 from rclpy.qos import QoSProfile, DurabilityPolicy

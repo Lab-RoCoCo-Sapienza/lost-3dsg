@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(tiago_project)
+project(lost3dsg)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
@@ -33,7 +33,7 @@ install(PROGRAMS
   src/perception_module/perception.py
   src/perception_module/cv_utils.py
   src/perception_module/utils.py
-  src/perception_module/object_menager.py
+  src/perception_module/object_manager.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
