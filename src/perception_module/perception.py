@@ -10,11 +10,9 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # Suppress TensorFlow warnings
 import rclpy
 from rclpy.node import Node
 from rclpy.duration import Duration
-from rclpy.qos import QoSProfile, DurabilityPolicy, ReliabilityPolicy, HistoryPolicy
-from sensor_msgs.msg import Image, JointState, CameraInfo
+from rclpy.qos import QoSProfile, DurabilityPolicy
+from sensor_msgs.msg import Image, JointState
 from std_msgs.msg import String, Header
-from visualization_msgs.msg import Marker, MarkerArray
-from std_msgs.msg import ColorRGBA
 from datetime import datetime
 from sensor_msgs.msg import PointCloud2
 import tf2_ros
@@ -30,7 +28,6 @@ from matplotlib.colors import to_rgb
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import logging
 from datetime import datetime
-import threading
 
 # Project imports
 from cv_utils import *
@@ -41,7 +38,7 @@ from tiago_project.msg import Centroid, CentroidArray, Bbox3d, Bbox3dArray
 from object_info import Object
 from world_model import wm
 from tiago_project.msg import ObjectDescription, ObjectDescriptionArray
-
+from std_msgs.msg import Bool
 import torch
 if torch.cuda.is_available():
     torch.backends.cudnn.benchmark = True
@@ -100,13 +97,15 @@ class DetectObjects(Node):
         
         self.bbox_pub = self.create_publisher(Bbox3dArray, '/bbox_3d', qos_standard)
         self.pub_crop = self.create_publisher(Image, "/cropped_image", qos_standard)
-
+        self.movement_detected_pub = self.create_publisher(Bool, '/robot_movement_detected', qos_standard)
+        self.robot_has_moved_once = False  # Flag to track if robot has moved at least once
+        
         # Manage robot movement state
         self.is_stationary = True  
         self.time_stationary_start = None  
         self.last_detection_time = None 
         self.first_detection_done = False  
-        self.min_stationary_after_movement = 5.0  
+        self.min_stationary_after_movement = 6.0  
 
         # USED DURING TEST PHASE
         self.manual_trigger_requested = False
@@ -130,11 +129,9 @@ class DetectObjects(Node):
         self.pcl_objects_pub = self.create_publisher(PointCloud2, '/pcl_objects', qos_latch)
         self.pcl_objects_labels_pub = self.create_publisher(String, '/pcl_objects_labels', qos_latch)
         self.publish_individual_objects = False  # Flag to enable individual pcl publishing
-        
-        self.accumulated_points = [] 
-        self.accumulated_labels = {} 
-        self.pcl_object_id_counter = 0  
-        
+
+        self.pcl_object_id_counter = 0  # Counter for unique object IDs (reset each frame)
+
         self.individual_pcl_publishers = {} 
 
         # Flag to interrupt processing if the robot moves
@@ -142,9 +139,8 @@ class DetectObjects(Node):
 
         self.filtered_objects = []
 
-        # Clear accumulated data service
+        # Clear accumulated markers
         self.clear_accumulated_markers()
-        self.clear_accumulated_pointclouds()
 
     def log_both(self, level, message):
         # Log on ROS
@@ -191,17 +187,6 @@ class DetectObjects(Node):
 
         self.get_logger().info("Marker counters reset")
     
-    def clear_accumulated_pointclouds(self):
-        """Clear all accumulated point clouds."""
-        self.accumulated_points.clear()
-        self.accumulated_labels.clear()
-        self.pcl_object_id_counter = 0
-        empty_cloud = PointCloud2()
-        empty_cloud.header = Header(stamp=self.get_clock().now().to_msg(), frame_id="map")
-        empty_cloud.height = 1
-        empty_cloud.width = 0
-        self.pcl_objects_pub.publish(empty_cloud)
-        self.get_logger().info("Removed all the accumulated point clouds and reset counters.")
    
     def color_pcl(self, detections, data):
         """Generate and publish colored PointCloud2 from masks"""
@@ -231,7 +216,6 @@ class DetectObjects(Node):
                 camera_info,
                 node=self,
                 labels=labels,
-                frame_id=camera_info.header.frame_id, # Use camera frame 
                 topic="/pcl_objects",
                 max_points_per_obj=1500,
                 publisher=self.pcl_objects_pub,
@@ -319,6 +303,9 @@ class DetectObjects(Node):
                     mask=mask_np
                 )
                 detections.append(detection)
+
+        # Reset point cloud ID counter for each new perception to avoid color overlapping
+        self.pcl_object_id_counter = 0
 
         self.color_pcl(detections, camera_data)
 
@@ -413,7 +400,7 @@ class DetectObjects(Node):
             # This allows the object_manager to remove objects in the POV
 
             empty_cloud = PointCloud2()
-            empty_cloud.header = Header(stamp=self.get_clock().now().to_msg(), frame_id=camera_info.header.frame_id)
+            empty_cloud.header = Header(stamp=self.get_clock().now().to_msg(), frame_id="map")
             empty_cloud.height = 1
             empty_cloud.width = 0
             self.pcl_objects_pub.publish(empty_cloud)
@@ -721,6 +708,12 @@ class DetectObjects(Node):
             self.is_stationary = False
             if was_stationary:
                 self.log_both('warn', "MOVEMENT DETECTED! The robot has moved.")
+                if not self.robot_has_moved_once:
+                    self.robot_has_moved_once = True
+                    msg = Bool()
+                    msg.data = True
+                    self.movement_detected_pub.publish(msg)
+                    self.log_both('warn', "First movement detected - published to /robot_movement_detected")
                 self.file_logger.warning(f"  Average joint delta: {media_delta:.8f} rad")
                 self.processing_interrupted = True
                 # CRITICAL FIX: Reset timer when robot starts moving

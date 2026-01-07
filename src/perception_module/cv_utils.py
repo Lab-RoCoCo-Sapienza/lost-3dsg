@@ -110,7 +110,7 @@ def overlay_mask_on_image(image, mask, color_rgb=(0.0, 1.0, 0.0), alpha=0.5):
     image[mask_bool] = blended
     return image
 
-def mask_list_to_pointcloud2(masks, depth_image, camera_info, node, labels=None, frame_id="camera_link", topic="/pcl_objects", max_points_per_obj=20000, remove_outliers=True, outlier_method='combined', sor_k=30, sor_std=1.0, ror_radius=0.02, ror_min_neighbors=20, depth_z_threshold=2.5, publisher=None, labels_publisher=None):
+def mask_list_to_pointcloud2(masks, depth_image, camera_info, node, labels=None, topic="/pcl_objects", max_points_per_obj=20000, remove_outliers=True, outlier_method='combined', sor_k=30, sor_std=1.0, ror_radius=0.02, ror_min_neighbors=20, depth_z_threshold=2.5, publisher=None, labels_publisher=None):
     """Aggregate masks into a PointCloud2 with an object_id field and publish it (latch=True).
 
     Args:
@@ -141,13 +141,10 @@ def mask_list_to_pointcloud2(masks, depth_image, camera_info, node, labels=None,
     
     node.get_logger().info(f"Camera intrinsics: fx={fx}, fy={fy}, cx={cx}, cy={cy}")
 
-    palette_names = ['red', 'green', 'blue', 'magenta', 'cyan', 'yellow', 'orange', 'purple', 'brown', 'pink']
-    palette = [to_rgb(c) for c in palette_names]
-
     current_points = []
     id_to_label = {}
 
-    for obj_idx, mask in enumerate(masks):        
+    for obj_idx, mask in enumerate(masks):
         if not isinstance(mask, np.ndarray):
             mask = np.array(mask)
         if mask.ndim == 3:
@@ -155,7 +152,7 @@ def mask_list_to_pointcloud2(masks, depth_image, camera_info, node, labels=None,
         else:
             mask2d = mask
         mask_bool = mask2d.astype(bool)
-        ys, xs = np.nonzero(mask_bool)      
+        ys, xs = np.nonzero(mask_bool)
         if len(xs) == 0:
             node.get_logger().warn(f"  Empty mask : {obj_idx}, skip")
             continue
@@ -165,12 +162,9 @@ def mask_list_to_pointcloud2(masks, depth_image, camera_info, node, labels=None,
             ys = ys[idx]
             node.get_logger().info(f"  Mask {obj_idx}: reduced to {len(xs)} points (max={max_points_per_obj})")
 
-        col = palette[obj_idx % len(palette)]
-        r = int(col[0] * 255) & 0xFF
-        g = int(col[1] * 255) & 0xFF
-        b = int(col[2] * 255) & 0xFF
-        rgb_uint = (r << 16) | (g << 8) | b
-        rgb_packed = struct.unpack('f', struct.pack('I', rgb_uint))[0]
+        # Use the unique object ID (global counter) to generate consistent colors
+        # This will be assigned later, so we'll generate the color after getting unique_obj_id
+        # For now, we'll store a placeholder and update it later
 
         
         depth_values = []
@@ -215,7 +209,8 @@ def mask_list_to_pointcloud2(masks, depth_image, camera_info, node, labels=None,
 
             X = (x - cx) * z / fx
             Y = (y - cy) * z / fy
-            points.append((float(X), float(Y), float(z), float(rgb_packed), int(obj_idx)))
+            # Store temporary placeholder for RGB (will be updated with unique_obj_id color)
+            points.append((float(X), float(Y), float(z), 0.0, int(obj_idx)))
 
         if filtered_count > 0:
             node.get_logger().info(f"Obj {obj_idx}: pre-filtered {filtered_count} points with anomalous depth") 
@@ -258,32 +253,57 @@ def mask_list_to_pointcloud2(masks, depth_image, camera_info, node, labels=None,
         # ============================================
         # Use unique ID from global counter instead of obj_idx
         unique_obj_id = node.pcl_object_id_counter
-        
-        # Update points with the new unique ID
-        points_with_unique_id = [(x, y, z, rgb, unique_obj_id) for x, y, z, rgb, _ in points]
-        
-        node.get_logger().info(f"  Mask {obj_idx}: {len(points_with_unique_id)} FINAL points with unique ID {unique_obj_id}")
+
+        # Generate color using the same system as centroids and bboxes
+        color_rgba = get_distinct_color(unique_obj_id)
+        r = int(color_rgba.r * 255) & 0xFF
+        g = int(color_rgba.g * 255) & 0xFF
+        b = int(color_rgba.b * 255) & 0xFF
+        rgb_uint = (r << 16) | (g << 8) | b
+        rgb_packed = struct.unpack('f', struct.pack('I', rgb_uint))[0]
+
+        # Transform points from camera frame to map frame
+        camera_frame = camera_info.header.frame_id
+        points_with_unique_id = []
+
+        for x, y, z, _, _ in points:
+            # Transform point from camera frame to map frame
+            try:
+                point_in_map = _transform_point_xyz((x, y, z), camera_frame, "map", node=node)
+                points_with_unique_id.append((
+                    float(point_in_map[0]),
+                    float(point_in_map[1]),
+                    float(point_in_map[2]),
+                    rgb_packed,  # Use the color based on unique_obj_id
+                    unique_obj_id
+                ))
+            except Exception as e:
+                node.get_logger().warn(f"Failed to transform point ({x}, {y}, {z}) to map frame: {e}")
+                continue
+
+        node.get_logger().info(f"  Mask {obj_idx}: {len(points_with_unique_id)} FINAL points transformed to map frame with unique ID {unique_obj_id}")
         current_points.extend(points_with_unique_id)
         id_to_label[unique_obj_id] = labels[obj_idx] if obj_idx < len(labels) else f"obj_{obj_idx}"
-        
+
         node.pcl_object_id_counter += 1
 
     node.get_logger().info(f"=== Published {len(current_points)} points from {len(id_to_label)} objects ===")
-    
+
     if len(current_points) == 0:
-        node.get_logger().warn("mask_list_to_pointcloud2: NO POINTS to publish!")  
+        node.get_logger().warn("mask_list_to_pointcloud2: NO POINTS to publish!")
         return
 
     # ============================================
-    # ACCUMULATE points instead of overwriting, Remove if you want to see only the current frame
+    # PUBLISH ONLY CURRENT FRAME (no accumulation)
+    # This prevents color overlapping when revisiting the same scene
     # ============================================
-    node.accumulated_points.extend(current_points)
-    node.accumulated_labels.update(id_to_label)
-    
-    node.get_logger().info(f"=== Total accumulated points: {len(node.accumulated_points)} from {len(node.accumulated_labels)} objects ===")
+    points_to_publish = current_points
+    labels_to_publish = id_to_label
+
+    node.get_logger().info(f"=== Publishing {len(points_to_publish)} points from {len(labels_to_publish)} objects (current frame only) ===")
 
     # ============================================
-    # Create and publish ACCUMULATED PointCloud2
+    # Create and publish CURRENT PointCloud2
     # ============================================
     fields = [
         PointField(name='x', offset=0, datatype=PointField.FLOAT32, count=1),
@@ -295,9 +315,9 @@ def mask_list_to_pointcloud2(masks, depth_image, camera_info, node, labels=None,
 
     header = Header()
     header.stamp = node.get_clock().now().to_msg()
-    header.frame_id = frame_id
+    header.frame_id = "map"  # Points are now in map frame after transformation
 
-    cloud_msg = point_cloud2.create_cloud(header, fields, node.accumulated_points)
+    cloud_msg = point_cloud2.create_cloud(header, fields, points_to_publish)
 
     if publisher is None:
         qos = QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL)
@@ -311,12 +331,12 @@ def mask_list_to_pointcloud2(masks, depth_image, camera_info, node, labels=None,
             labels_publisher = node.create_publisher(String, topic + "_labels", qos)
 
         labels_msg = String()
-        labels_msg.data = json.dumps(node.accumulated_labels)
+        labels_msg.data = json.dumps(labels_to_publish)
         labels_publisher.publish(labels_msg)
     except Exception:
-        node.get_logger().warn("Unable to publish pcl labels mapping")  
+        node.get_logger().warn("Unable to publish pcl labels mapping")
 
-    node.get_logger().info(f"mask_list_to_pointcloud2: published ACCUMULATED {len(node.accumulated_labels)} objects with {len(node.accumulated_points)} points total")  # ROS2_MIGRATION
+    node.get_logger().info(f"mask_list_to_pointcloud2: published {len(labels_to_publish)} objects with {len(points_to_publish)} points (current frame only)")  # ROS2_MIGRATION
 
 def publish_individual_pointclouds_by_id(masks, depth_image, camera_info, node, labels=None, frame_id="camera_link", topic_prefix="/pcl_id", max_points_per_obj=20000, remove_outliers=True, outlier_method='combined', sor_k=15, sor_std=1.5, ror_radius=0.04, ror_min_neighbors=10, depth_z_threshold=2.5, publishers_dict=None, id_counter_start=0, timestamp=None):
     """Publish one PointCloud2 per mask on topics `<topic_prefix>_<id>` (latch=True).
@@ -575,9 +595,10 @@ def points_list_to_rviz_3d(points, node, centroid_marker_pub=None, labels=None, 
         text_marker.pose.orientation.y = 0.0
         text_marker.pose.orientation.z = 0.0
         text_marker.pose.orientation.w = 1.0
-        text_marker.scale.z = marker_scale * 1.2  
+        text_marker.scale.z = marker_scale * 1.2
         text_marker.color = color_text
-        text_marker.text = label
+        # Replace spaces with newlines for better readability in RViz
+        text_marker.text = label.replace(' ', '\n')
         text_marker.lifetime = Duration(seconds=0).to_msg()
 
         marker_array.markers.append(marker)
@@ -968,8 +989,8 @@ def publish_persistent_bboxes(node, wm, persistent_bboxes_pub=None):
             text_marker.pose.position.z = obj.bbox["z_max"] + 0.1
             text_marker.pose.orientation.w = 1.0
 
-            # Text
-            text_marker.text = obj.label
+            # Text - Replace spaces with newlines for better readability
+            text_marker.text = obj.label.replace(' ', '\n')
             text_marker.scale.z = 0.1  # Text height
 
             # Color (white)
@@ -1044,8 +1065,9 @@ def publish_uncertain_bboxes(node, uncertain_objects, uncertain_bbox_pub):
             text_marker.pose.position.z = obj.bbox["z_max"] + 0.1
             text_marker.pose.orientation.w = 1.0
 
-            # Text
-            text_marker.text = f"{obj.label} [UNCERTAIN]"
+            # Text - Replace spaces with newlines for better readability
+            label_with_newlines = obj.label.replace(' ', '\n')
+            text_marker.text = f"{label_with_newlines}\n[UNCERTAIN]"
             text_marker.scale.z = 0.1  # Text height
 
             # Color (ORANGE)

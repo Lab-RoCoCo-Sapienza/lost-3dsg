@@ -11,6 +11,7 @@ import numpy as np
 from openai import OpenAI
 from tiago_project.msg import ObjectDescriptionArray, Bbox3dArray
 from visualization_msgs.msg import Marker, MarkerArray
+from std_msgs.msg import Bool
 from object_info import Object
 from debug_utils import TrackingLogger
 from world_model import wm
@@ -414,6 +415,8 @@ class ObjectManagerNode(Node):
 
         qos_latch = QoSProfile(depth=10, durability=DurabilityPolicy.TRANSIENT_LOCAL)
         qos_standard = QoSProfile(depth=10)
+        self.robot_has_moved = False  # Flag to detect if robot has moved at least once
+        self.create_subscription(Bool, "/robot_movement_detected", self.movement_callback, qos_standard)
 
         self.persistent_bbox_pub = self.create_publisher(MarkerArray, '/persistent_bbox', qos_latch)
         self.considered_volume_pub = self.create_publisher(MarkerArray, '/considered_volume', qos_standard)
@@ -426,6 +429,12 @@ class ObjectManagerNode(Node):
 
         exploration_thread = threading.Thread(target=self.wait_for_exploration_end, daemon=True)
         exploration_thread.start()
+
+    def movement_callback(self, msg):
+        """Callback to receive robot movement notification from perception."""
+        if msg.data and not self.robot_has_moved:
+            self.robot_has_moved = True
+            self.log_both('info', "[MOVEMENT] Robot has moved at least once - can now transition to TRACKING")
 
 
     def log_both(self, level, message):
@@ -464,6 +473,11 @@ class ObjectManagerNode(Node):
 
         # Wait until an object is seen again
         while not self.seen_again:
+            choice = input("Click ENTER to stop exploration and switch to TRACKING mode...\n")
+            if choice == "":
+                self.seen_again = True
+                self.log_both('warn', "[EXPLORATION] Manual interruption received - switching to TRACKING mode...")
+                break
             time.sleep(0.1)  # Check every 100ms
 
         self.log_both('warn', "=" * 60)
@@ -566,9 +580,9 @@ class ObjectManagerNode(Node):
                                 current_perception_objects.append(obj)
                                 obj.bbox = bbox
                                 print(f"FULL MATCH! '{label}' = '{obj.label}' (lost_sim={similarity:.3f}, IoU={iou:.3f})")
-
-                                # Set flag to trigger transition to tracking
-                                if not self.seen_again:
+                                # Set flag to trigger transition to tracking (I have seen an object again)
+                                # TODO: Improve with: I have seen an object again AND the robot has moved at least once
+                                if not self.seen_again and self.robot_has_moved:
                                     self.seen_again = True
                                     self.log_both('warn', f"[EXPLORATION] Object '{label}' seen again! Preparing to switch to TRACKING...")
 
