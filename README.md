@@ -127,6 +127,10 @@ You can list your robot's available topics with:
 ros2 topic list | grep camera
 ```
 
+### Run LOST-3DSG
+
+To run the full pipeline, start the following two modules in separate terminals. The Scene Updater Module subscribes to the Perception module's outputs to build the scene graph.
+
 ### Running the Perception Module
 
 The perception module performs real-time object detection and segmentation using Vision-Language Models (VLMs). It identifies objects in the camera view, generates 3D bounding boxes, extracts visual features (color, material, shape), and publishes point clouds and semantic descriptions.
@@ -139,7 +143,7 @@ source ~/ros2_ws/install/setup.bash
 ros2 run lost3dsg perception.py
 ```
 
-### Running the Object Manager Module
+### Running the Scene Updater Module
 
 The object manager maintains a persistent 3D scene graph by tracking detected objects across frames. It handles object association, movement detection, and spatial reasoning to build a consistent world model. This module distinguishes between new objects, moved objects, and objects that have left the field of view.
 
