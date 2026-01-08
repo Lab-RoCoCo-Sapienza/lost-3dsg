@@ -5,3 +5,7 @@ build/
 log/
 install/
 output/
+*.db3
+*.rviz
+*.yaml
+*.rviz
