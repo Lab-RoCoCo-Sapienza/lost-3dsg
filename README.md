@@ -143,7 +143,7 @@ source ~/ros2_ws/install/setup.bash
 ros2 run lost3dsg perception.py
 ```
 
-### Running the Scene Updater Module
+### Running the Scene Update Module
 
 The object manager maintains a persistent 3D scene graph by tracking detected objects across frames. It handles object association, movement detection, and spatial reasoning to build a consistent world model. This module distinguishes between new objects, moved objects, and objects that have left the field of view.
 
