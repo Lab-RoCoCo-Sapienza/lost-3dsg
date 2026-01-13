@@ -9,13 +9,24 @@ If unclear, use "unknown"
 "shape": choose ONLY from this list:
 ["cube", "sphere", "cylinder", "rectangular", "irregular", "flat", "elongated", "curved", "angular", "conical"]
 "material": choose ONLY one word that represent the main material of the object.
-"description": **CRITICAL REQUIREMENT: This field must be SIGNIFICANTLY MORE DETAILED than typical descriptions. You must write exactly how the objects it's made describing in details the visual feature that can disambiguate THIS OBJECT FROM ALL THE OTHERS.
-For example if I have two books one with two  special designs you have to describe them in details : book 1: in the paperbook there is a dog in a garden , book 2: in teh paperback there is a text with monocromatic background, OBVIOUSLY IF YOU CATCH OTHER design 
-yOU HAVE TO WRITE THEM AND YOU HAVE TO DO THIS FOR ALL THE TYPES OF OBJECTS. this WAS JUST AN EXAMPLE !!!!
-Try to write in a sintethic way in the description all the details relevant for that object.
-The color the material and the shape are already in the other fields so skip it in the description field.
-**Use clear, objective, and precise language. Each sentence should be substantial and information-rich, going well beyond basic identification.**
-IMPORTANT: When describing the same object type multiple times, ensure descriptions are sufficiently different by emphasizing unique visual characteristics, specific functional details, and distinctive features that set each instance apart
+"description": **CRITICAL: Focus ONLY on visual distinguishing details that make THIS object unique from others of the same type. 
+
+What to include:
+- Written text or logos (e.g., "scritto 3dsmax", "scritto orange", "logo Nike")
+- Specific patterns, designs, or images on the object (e.g., "design with flowers", "geometric pattern")
+- Unique visual marks, stickers, or decorations
+- Only unique features and not general ones
+
+What to SKIP (already in other fields):
+- General color, material, or shape descriptions
+- Generic object names or obvious features
+
+Examples:
+- Book: "cover shows a dog in a garden with text 'Adventure'"
+- Bottle: "label with orange text and mountain logo"
+- Box: "white surface with barcode and shipping label"
+
+Write concisely but include ALL visible distinguishing details.**
 Use the following naming convention for the object:
 "object_1"
 If any information is unclear, use:

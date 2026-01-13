@@ -1,5 +1,9 @@
 Provide a list of objects to identify in the scene, separated by commas. Only include objects that are clearly visible and in the foreground. 
 Do NOT include objects that are in the background or partially visible. If you see a sofa with cushions, write only 'sofa' (do not list cushions separately). 
-In few words for each object you have to write the only unique label for him. Exclude irrelevant objects such as walls, stickers, or background items. 
-Example: plant, screwdriver, wrench, hammer, can. 
+
+IMPORTANT: Use ONLY ONE WORD per object - use the most common, simple name. NO compound words, NO adjectives, NO descriptions.
+Examples: 'bottle' NOT 'water bottle', 'chair' NOT 'office chair', 'plant' NOT 'potted plant', 'laptop' NOT 'gaming laptop'.
+
+Exclude irrelevant objects such as walls, stickers, or background items. 
+Example: plant, screwdriver, wrench, hammer, can, bottle, chair, table. 
 Do not add any other text, only the list of objects.

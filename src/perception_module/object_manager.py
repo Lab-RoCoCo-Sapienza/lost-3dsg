@@ -9,7 +9,7 @@ from rclpy.duration import Duration
 from rclpy.qos import QoSProfile, DurabilityPolicy
 import numpy as np
 from openai import OpenAI
-from tiago_project.msg import ObjectDescriptionArray, Bbox3dArray
+from lost3dsg.msg import ObjectDescriptionArray, Bbox3dArray
 from visualization_msgs.msg import Marker, MarkerArray
 from std_msgs.msg import Bool
 from object_info import Object
@@ -27,7 +27,7 @@ EXPLORATION_MODE = True  # Flag to indicate if we are in exploration mode
 
 SIM_THRESHOLD = 0.75
 TRACKING_IOU_THRESHOLD = 0.3  # IoU threshold to consider objects as "moved" in tracking mode
-VOLUME_EXPANSION_RATIO = 0.05 # 5% expansion relative to object dimensions
+VOLUME_EXPANSION_RATIO = 0.01 # 1% expansion relative to object dimensions
 
 
 # Load OpenAI API key
@@ -351,6 +351,152 @@ def save_persistent_perceptions(node):
         node.log_both('debug', f"  - {obj_data['label']}: {obj_data['description']}")
 
 
+def save_scene_graph(node, step, is_exploration=False):
+    """
+    Generate and save a 3D scene graph image for the current step.
+
+    Args:
+        node: ROS node for logging
+        step: Current step number (exploration or tracking)
+        is_exploration: If True, this is an exploration step, else tracking step
+    """
+    import matplotlib
+    matplotlib.use('Agg')  # Non-interactive backend for saving
+    import matplotlib.pyplot as plt
+    from mpl_toolkits.mplot3d import Axes3D
+
+    output_dir = os.path.join(PROJECT_ROOT, "output")
+    os.makedirs(output_dir, exist_ok=True)
+
+    objects = []
+    for obj in wm.persistent_perceptions:
+        objects.append({
+            "label": obj.label,
+            "color": obj.color,
+            "material": obj.material,
+            "bbox": obj.bbox
+        })
+    
+    # Save JSON data for better analysis
+    prefix = "exploration" if is_exploration else "tracking"
+    json_path = os.path.join(output_dir, f"scene_graph_{prefix}_{step:03d}.json")
+    with open(json_path, 'w') as f:
+        json.dump({
+            "step": step,
+            "mode": prefix,
+            "num_objects": len(objects),
+            "objects": objects
+        }, f, indent=2)
+    node.log_both('info', f"[SCENE GRAPH] Saved JSON: {json_path}")
+
+    mode_str = "Exploration" if is_exploration else "Tracking"
+    if len(objects) == 0:
+        node.log_both('info', f"[SCENE GRAPH] No objects to visualize for {mode_str} step {step}")
+        return
+
+    # Set up figure
+    fig = plt.figure(figsize=(14, 10), facecolor='#F9F7F7')
+    ax = fig.add_subplot(111, projection='3d')
+    ax.set_facecolor('#F9F7F7')
+
+    # Style panes
+    ax.xaxis.pane.fill = False
+    ax.yaxis.pane.fill = False
+    ax.zaxis.pane.fill = False
+    ax.xaxis.pane.set_edgecolor('#DDE6ED')
+    ax.yaxis.pane.set_edgecolor('#DDE6ED')
+    ax.zaxis.pane.set_edgecolor('#DDE6ED')
+
+    # Grid style
+    ax.xaxis._axinfo["grid"]['color'] = '#DDE6ED'
+    ax.yaxis._axinfo["grid"]['color'] = '#DDE6ED'
+    ax.zaxis._axinfo["grid"]['color'] = '#DDE6ED'
+    ax.xaxis._axinfo["grid"]['linewidth'] = 0.5
+    ax.yaxis._axinfo["grid"]['linewidth'] = 0.5
+    ax.zaxis._axinfo["grid"]['linewidth'] = 0.5
+
+    node_color = '#7EB5D6'
+
+    # Get centroids
+    centroids = []
+    for obj in objects:
+        bbox = obj['bbox']
+        centroid = np.array([
+            (bbox['x_min'] + bbox['x_max']) / 2,
+            (bbox['y_min'] + bbox['y_max']) / 2,
+            (bbox['z_min'] + bbox['z_max']) / 2
+        ])
+        centroids.append(centroid)
+    centroids = np.array(centroids)
+
+    # Root position
+    scene_center = centroids.mean(axis=0)
+    z_max = max(c[2] for c in centroids) + 0.3
+    root_pos = np.array([scene_center[0], scene_center[1], z_max])
+
+    # Draw root node
+    ax.scatter(*root_pos, s=500, c='#4A6572', marker='o', zorder=10,
+               edgecolors='#F9F7F7', linewidth=2.5)
+    ax.text(root_pos[0], root_pos[1], root_pos[2] + 0.08, 'SCENE',
+            ha='center', va='bottom', fontsize=13, fontweight='bold', color='#344955')
+
+    # Draw objects (senza label individuali per ridurre affollamento)
+    for i, obj in enumerate(objects):
+        centroid = centroids[i]
+
+        # Edge
+        ax.plot3D([root_pos[0], centroid[0]],
+                  [root_pos[1], centroid[1]],
+                  [root_pos[2], centroid[2]],
+                  color='#9DB2BF', linewidth=1.5, alpha=0.5, linestyle='-')
+
+        # Node
+        ax.scatter(*centroid, s=400, c=node_color, marker='o', zorder=10,
+                   edgecolors='#F9F7F7', linewidth=2)
+
+        # Label
+        ax.text(centroid[0], centroid[1], centroid[2] + 0.1,
+                obj['label'],
+                ha='center', va='bottom', fontsize=10, fontweight='semibold',
+                color='#2C3E50')
+
+    # Labels
+    ax.set_xlabel('X (m)', fontsize=11, color='#526D82')
+    ax.set_ylabel('Y (m)', fontsize=11, color='#526D82')
+    ax.set_zlabel('Z (m)', fontsize=11, color='#526D82')
+
+    # Title
+    title_mode = "Exploration" if is_exploration else "Tracking"
+    ax.set_title(f'3D Scene Graph - {title_mode} Step {step}\n{len(objects)} objects',
+                 fontsize=14, fontweight='bold', color='#27374D', pad=20)
+
+    # Equal aspect ratio
+    all_points = np.vstack([centroids, root_pos.reshape(1, -1)])
+    max_range = np.array([all_points[:, 0].max() - all_points[:, 0].min(),
+                          all_points[:, 1].max() - all_points[:, 1].min(),
+                          all_points[:, 2].max() - all_points[:, 2].min()]).max() / 2.0
+
+    mid_x = (all_points[:, 0].max() + all_points[:, 0].min()) * 0.5
+    mid_y = (all_points[:, 1].max() + all_points[:, 1].min()) * 0.5
+    mid_z = (all_points[:, 2].max() + all_points[:, 2].min()) * 0.5
+
+    ax.set_xlim(mid_x - max_range - 0.2, mid_x + max_range + 0.2)
+    ax.set_ylim(mid_y - max_range - 0.2, mid_y + max_range + 0.2)
+    ax.set_zlim(0, mid_z + max_range + 0.3)
+
+    ax.view_init(elev=30, azim=45)
+
+    plt.tight_layout()
+
+    # Save
+    prefix = "exploration" if is_exploration else "tracking"
+    output_path = os.path.join(output_dir, f"scene_graph_{prefix}_{step:03d}.png")
+    plt.savefig(output_path, dpi=150, bbox_inches='tight', facecolor='white')
+    plt.close(fig)
+
+    node.log_both('info', f"[SCENE GRAPH] Saved: {output_path}")
+
+
 def save_uncertain_objects(node):
     """
     Save uncertain_objects to a text file.
@@ -409,6 +555,7 @@ class ObjectManagerNode(Node):
         self.seen_again = False  # Flag to detect when an object is seen again
 
         self.latest_bboxes = {}
+        self.latest_fov_volume = None  # FOV volume from depth camera
 
         # Uncertain objects list
         self.uncertain_objects = []
@@ -419,8 +566,10 @@ class ObjectManagerNode(Node):
         self.create_subscription(Bool, "/robot_movement_detected", self.movement_callback, qos_standard)
 
         self.persistent_bbox_pub = self.create_publisher(MarkerArray, '/persistent_bbox', qos_latch)
+        self.persistent_centroids_pub = self.create_publisher(MarkerArray, '/persistent_centroids', qos_latch)
         self.considered_volume_pub = self.create_publisher(MarkerArray, '/considered_volume', qos_standard)
         self.uncertain_bboxes_pub = self.create_publisher(MarkerArray, '/uncertain_object', qos_standard)
+        self.uncertain_centroids_pub = self.create_publisher(MarkerArray, '/uncertain_centroids', qos_standard)
 
         self.create_subscription(Bbox3dArray, "/bbox_3d", self.bbox_callback, qos_standard)
         self.create_subscription(ObjectDescriptionArray, "/object_descriptions", self.description_callback, qos_standard)
@@ -432,9 +581,12 @@ class ObjectManagerNode(Node):
 
     def movement_callback(self, msg):
         """Callback to receive robot movement notification from perception."""
+        self.log_both('info', f"[MOVEMENT] Received movement message: {msg.data}")
         if msg.data and not self.robot_has_moved:
             self.robot_has_moved = True
-            self.log_both('info', "[MOVEMENT] Robot has moved at least once - can now transition to TRACKING")
+            self.log_both('warn', "[MOVEMENT] ✓ Robot has moved at least once - can now transition to TRACKING")
+        else:
+            self.log_both('info', f"[MOVEMENT] robot_has_moved already set to: {self.robot_has_moved}")
 
 
     def log_both(self, level, message):
@@ -490,10 +642,13 @@ class ObjectManagerNode(Node):
         self.exploration_mode = False
 
         publish_persistent_bboxes(self, wm, self.persistent_bbox_pub)
+        publish_persistent_centroids(self, wm, self.persistent_centroids_pub)
 
     def description_callback(self, msg):
         if not hasattr(self, 'tracking_step_counter'):
             self.tracking_step_counter = 0
+        if not hasattr(self, 'exploration_step_counter'):
+            self.exploration_step_counter = 0
         if not self.exploration_mode:
             self.tracking_step_counter += 1
 
@@ -580,11 +735,13 @@ class ObjectManagerNode(Node):
                                 current_perception_objects.append(obj)
                                 obj.bbox = bbox
                                 print(f"FULL MATCH! '{label}' = '{obj.label}' (lost_sim={similarity:.3f}, IoU={iou:.3f})")
-                                # Set flag to trigger transition to tracking (I have seen an object again)
-                                # TODO: Improve with: I have seen an object again AND the robot has moved at least once
-                                if not self.seen_again and self.robot_has_moved:
-                                    self.seen_again = True
-                                    self.log_both('warn', f"[EXPLORATION] Object '{label}' seen again! Preparing to switch to TRACKING...")
+                                # Set flag to trigger transition to tracking (I have seen an object again AND robot has moved at least once)
+                                if not self.seen_again:
+                                    if self.robot_has_moved:
+                                        self.seen_again = True
+                                        self.log_both('warn', f"[EXPLORATION] ✓ Object '{label}' seen again! Robot has moved. Switching to TRACKING...")
+                                    else:
+                                        self.log_both('warn', f"[EXPLORATION] Object '{label}' seen again, but robot hasn't moved yet. Waiting for movement...")
 
                                 break
 
@@ -684,6 +841,11 @@ class ObjectManagerNode(Node):
                                 self.uncertain_objects.append(best_match)
                                 print(f"   📝 '{best_match.label}' added to UNCERTAIN_OBJECTS (movement={distance:.3f}m > 0.8m)")
                                 print(f"   → It will be saved in the uncertain_objects.txt file and published on /uncertain_object\n")
+                                # Log uncertain object addition
+                                if not in_exploration:
+                                    tracking_logger.log_uncertain_added(best_match.label, "Large displacement detected", distance,
+                                                                       bbox=best_match.bbox, step_number=self.tracking_step_counter, 
+                                                                       obj=best_match, case_type="MOVED >0.8m")
                         else:
                             print(f"{best_match.label} NOT added to UNCERTAIN_OBJECTS (movement={distance:.3f}m ≤ 0.8m)\n")
 
@@ -693,6 +855,12 @@ class ObjectManagerNode(Node):
                         wm.persistent_perceptions.append(updated_obj)
                         current_perception_objects.append(updated_obj)
                         print(f"MODIFICATION: '{label}' reinserted with new position in persistent_perceptions")
+                        
+                        # Log position change
+                        if not in_exploration:
+                            tracking_logger.log_position_change(label, best_match.bbox, bbox, distance,
+                                                              step_number=self.tracking_step_counter, obj=updated_obj,
+                                                              case_type="POSITION UPDATE")
                         
                         objects_modified = True
                 else:
@@ -718,10 +886,20 @@ class ObjectManagerNode(Node):
 
                 mode_tag = "[EXPLORATION]" if in_exploration else f"[TRACKING STEP {self.tracking_step_counter}]"
                 print(f"{mode_tag} New object '{label}' added to persistent_perceptions (bbox volume: {volume:.3f} m³)")
+                
+                # Log new object addition
+                if not in_exploration:
+                    tracking_logger.log_new_object(new_obj, case_type="NEW DETECTION")
+                
                 save_persistent_perceptions(self)
 
+                # Save scene graph after adding object in exploration
+                if in_exploration:
+                    self.exploration_step_counter += 1
+                    save_scene_graph(self, self.exploration_step_counter, is_exploration=True)
+
         # ======== MANAGEMENT OF OBJECTS NOT SEEN IN THE CURRENT FRAME ========
-        # DELETION
+        # DELETION - Using FOV volume from depth camera (full visible area)
 
         if not in_exploration:
 
@@ -730,45 +908,36 @@ class ObjectManagerNode(Node):
             objects_to_remove = []
             uncertain_to_remove = []
 
-            if not description_recieved:
-                if self.latest_bboxes:
-                    detected_bboxes = [entry["bbox"] for entry in self.latest_bboxes.values()]
-                    pov_volume = compute_pov_volume(detected_bboxes, VOLUME_EXPANSION_RATIO)
+            # Use FOV volume from depth camera instead of computing from detection bboxes
+            pov_volume = self.latest_fov_volume
 
-                    if pov_volume:
-                        publish_pov_volume(self, pov_volume, self.considered_volume_pub)
+            if pov_volume:
+                print(f"[POV] Using FOV from depth camera: X[{pov_volume['x_min']:.2f}, {pov_volume['x_max']:.2f}], "
+                      f"Y[{pov_volume['y_min']:.2f}, {pov_volume['y_max']:.2f}], "
+                      f"Z[{pov_volume['z_min']:.2f}, {pov_volume['z_max']:.2f}]")
+                publish_pov_volume(self, pov_volume, self.considered_volume_pub)
 
-                        for obj in wm.persistent_perceptions:
-                            if obj.bbox and bbox_centroid_in_volume(obj.bbox, pov_volume):
-                                objects_to_remove.append(obj)
-                                print(f"DELETION: '{obj.label}' is IN POV but NOT SEEN (zero detection) → Will be REMOVED from persistent_perceptions")
+                if not description_recieved:
+                    # No objects detected - check which persistent objects are in FOV
+                    for obj in wm.persistent_perceptions:
+                        if obj.bbox and bbox_centroid_in_volume(obj.bbox, pov_volume):
+                            objects_to_remove.append(obj)
+                            print(f"DELETION: '{obj.label}' is IN POV but NOT SEEN (zero detection) → Will be REMOVED from persistent_perceptions")
+                        else:
+                            print(f"'{obj.label}' not in POV (centroid) → ignored")
 
+                    if self.uncertain_objects:
+                        for uncertain_obj in self.uncertain_objects:
+                            if uncertain_obj.bbox and bbox_centroid_in_volume(uncertain_obj.bbox, pov_volume):
+                                uncertain_to_remove.append(uncertain_obj)
+                                print(f"DELETION: '{uncertain_obj.label}' (ORANGE) is IN POV but NOT SEEN → Will be REMOVED from uncertain_objects")
                             else:
-                                print(f"'{obj.label}' not in POV (centroid) → ignored")
+                                print(f"'{uncertain_obj.label}' (ORANGE) not in POV (centroid) → ignored")
 
-                        if self.uncertain_objects:
-                            for uncertain_obj in self.uncertain_objects:
-                                if uncertain_obj.bbox and bbox_centroid_in_volume(uncertain_obj.bbox, pov_volume):
-                                    uncertain_to_remove.append(uncertain_obj)
-                                    print(f"DELETION: '{uncertain_obj.label}' (ORANGE) is IN POV but NOT SEEN → Will be REMOVED from uncertain_objects")
-                                else:
-                                    print(f"'{uncertain_obj.label}' (ORANGE) not in POV (centroid) → ignored")
+                    print(f"\nResult: {len(objects_to_remove)} persistent objects to remove, {len(uncertain_to_remove)} uncertain objects to remove")
 
-                        print(f"\nResult: {len(objects_to_remove)} persistent objects to remove, {len(uncertain_to_remove)} uncertain objects to remove")
-                    else:
-                        print(f"Unable to calculate POV volume from depth (invalid bboxes)")
                 else:
-                    print(f"No bbox available from depth camera - unable to calculate POV")
-                    print(f"This is normal if detection_node hasn't published bbox yet")
-
-            elif description_recieved:
-                detected_bboxes = matched_bboxes
-                pov_volume = compute_pov_volume(detected_bboxes, VOLUME_EXPANSION_RATIO)
-
-                if pov_volume:
-                    publish_pov_volume(self, pov_volume, self.considered_volume_pub)
-
-
+                    # Objects detected - check which persistent objects are in FOV but not matched
                     for obj in wm.persistent_perceptions:
                         if obj not in current_perception_objects:
                             if obj.bbox and bbox_centroid_in_volume(obj.bbox, pov_volume):
@@ -777,13 +946,16 @@ class ObjectManagerNode(Node):
                                 continue
                         else:
                             continue
-                else:
-                    print(f"Unable to calculate POV volume from depth (invalid bboxes)")
+            else:
+                print(f"No FOV volume available from depth camera - unable to calculate POV")
+                print(f"This is normal if perception_node hasn't published bbox yet")
 
             if objects_to_remove:
                 print(f"\nDELETING OBJECTS FROM PERSISTENT_PERCEPTIONS - TRACKING STEP {self.tracking_step_counter}")
 
                 for obj in objects_to_remove:
+                    tracking_logger.log_deletion(obj.label, "Object in POV but not detected", bbox=obj.bbox, 
+                                                step_number=self.tracking_step_counter, obj=obj, case_type="NOT SEEN IN POV")
                     wm.persistent_perceptions.remove(obj)
 
                 objects_modified = True
@@ -795,7 +967,7 @@ class ObjectManagerNode(Node):
             print(f"\n{'─'*60}")
             print(f"[TRACKING STEP {self.tracking_step_counter}] Verifying uncertain objects with POV VOLUME...")
             print(f"{'─'*60}")
-            if description_recieved and pov_volume:
+            if pov_volume:
                 for uncertain_obj in self.uncertain_objects:
                     # MODIFIED: Check if the CENTROID is inside the POV (less aggressive)
                     if uncertain_obj.bbox and bbox_centroid_in_volume(uncertain_obj.bbox, pov_volume):
@@ -809,6 +981,8 @@ class ObjectManagerNode(Node):
             if uncertain_to_remove:
                 print(f"\nDELETION OF UNCERTAIN OBJECTS FROM UNCERTAIN_OBJECTS (VERIFIED ZONE) - TRACKING STEP {self.tracking_step_counter}")
                 for uncertain_obj in uncertain_to_remove:
+                    tracking_logger.log_deletion(uncertain_obj.label, "Uncertain zone verified", bbox=uncertain_obj.bbox,
+                                                step_number=self.tracking_step_counter, obj=uncertain_obj, case_type="UNCERTAIN ZONE VERIFIED")
                     self.uncertain_objects.remove(uncertain_obj)
 
                 objects_modified = True
@@ -820,11 +994,19 @@ class ObjectManagerNode(Node):
 
         if objects_modified and not in_exploration:
             publish_persistent_bboxes(self, wm, self.persistent_bbox_pub)
+            publish_persistent_centroids(self, wm, self.persistent_centroids_pub)
             publish_uncertain_bboxes(self, self.uncertain_objects, self.uncertain_bboxes_pub)
+            publish_uncertain_centroids(self, self.uncertain_objects, self.uncertain_centroids_pub)
             save_uncertain_objects(self)
 
-        # Prevent reusing stale bboxes if no new bbox message arrives
+        # Save scene graph for this tracking step
+        if not in_exploration:
+            tracking_logger.log_tracking_step_start(self.tracking_step_counter)
+            save_scene_graph(self, self.tracking_step_counter)
+
+        # Prevent reusing stale data if no new bbox message arrives
         self.latest_bboxes.clear()
+        self.latest_fov_volume = None
 
 
 
@@ -832,9 +1014,26 @@ class ObjectManagerNode(Node):
         """
         Callback for 3D bounding boxes.
         Temporarily stores bbox by label, waiting for semantic matching.
+        Also stores FOV volume from depth camera.
         """
 
         self.latest_bboxes = {}
+
+        # Store FOV volume from depth camera (computed by perception node)
+        if msg.fov_x_max != 0 or msg.fov_y_max != 0 or msg.fov_z_max != 0:
+            self.latest_fov_volume = {
+                "x_min": msg.fov_x_min,
+                "x_max": msg.fov_x_max,
+                "y_min": msg.fov_y_min,
+                "y_max": msg.fov_y_max,
+                "z_min": msg.fov_z_min,
+                "z_max": msg.fov_z_max
+            }
+            self.log_both('debug', f"[FOV] Received FOV from depth: X[{msg.fov_x_min:.2f}, {msg.fov_x_max:.2f}], "
+                          f"Y[{msg.fov_y_min:.2f}, {msg.fov_y_max:.2f}], Z[{msg.fov_z_min:.2f}, {msg.fov_z_max:.2f}]")
+        else:
+            self.latest_fov_volume = None
+
         for box in msg.boxes:
             # Normalize values (ensure min < max)
             x_min, x_max = min(box.x_min, box.x_max), max(box.x_min, box.x_max)
@@ -873,11 +1072,13 @@ class ObjectManagerNode(Node):
             if len(wm.persistent_perceptions) > 0:
                 self.log_both('debug', f"[PERIODIC] Periodic publishing of bbox ({len(wm.persistent_perceptions)} objects)")
                 publish_persistent_bboxes(self, wm, self.persistent_bbox_pub)
+                publish_persistent_centroids(self, wm, self.persistent_centroids_pub)
 
             # NEW: Periodically publishes and saves uncertain objects
             if len(self.uncertain_objects) > 0:
                 self.log_both('debug', f"[PERIODIC] Periodic publishing of uncertain objects ({len(self.uncertain_objects)} objects)")
                 publish_uncertain_bboxes(self, self.uncertain_objects, self.uncertain_bboxes_pub)
+                publish_uncertain_centroids(self, self.uncertain_objects, self.uncertain_centroids_pub)
                 save_uncertain_objects(self)
 
 

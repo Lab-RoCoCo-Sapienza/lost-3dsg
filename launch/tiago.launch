@@ -24,7 +24,7 @@
   <env name="LC_NUMERIC" value="C" />
 
   <!-- start up world -->
-  <include file="$(find tiago_project)/launch/manipulation_world.launch"/>
+  <include file="$(find lost3dsg)/launch/manipulation_world.launch"/>
 
   <!-- spawn robot in simulation -->
   <include file="$(find tiago_gazebo)/launch/tiago_spawn.launch">

@@ -34,14 +34,113 @@ from cv_utils import *
 import utils
 from utils import draw_detections, apply_nms
 from models import DINO, VitSam, OWLv2
-from tiago_project.msg import Centroid, CentroidArray, Bbox3d, Bbox3dArray
+from lost3dsg.msg import Centroid, CentroidArray, Bbox3d, Bbox3dArray
 from object_info import Object
 from world_model import wm
-from tiago_project.msg import ObjectDescription, ObjectDescriptionArray
+from lost3dsg.msg import ObjectDescription, ObjectDescriptionArray
 from std_msgs.msg import Bool
 import torch
 if torch.cuda.is_available():
     torch.backends.cudnn.benchmark = True
+
+
+def compute_fov_volume_from_depth(depth_image, camera_info, node, depth_threshold=4.0):
+    """
+    Compute the 3D FOV volume from the entire depth image.
+
+    Projects all valid depth pixels to 3D, transforms to map frame,
+    then takes min/max to get the bounding volume.
+
+    Args:
+        depth_image: The depth image (numpy array)
+        camera_info: Camera calibration info (CameraInfo message)
+        node: ROS node for TF lookups and logging
+        depth_threshold: Maximum depth to consider (meters)
+
+    Returns:
+        dict: FOV volume with x_min, x_max, y_min, y_max, z_min, z_max in map frame
+              or None if computation fails
+    """
+    from cv_utils import _transform_point_xyz
+
+    try:
+        # Get camera intrinsics
+        K = camera_info.k
+        fx, fy, cx, cy = K[0], K[4], K[2], K[5]
+
+        h, w = depth_image.shape[:2]
+
+        # Convert depth to meters if needed
+        if depth_image.dtype == np.uint16:
+            depth_m = depth_image.astype(np.float32) / 1000.0
+        else:
+            depth_m = depth_image.astype(np.float32)
+
+        # Get valid depth mask - FILTER points beyond 1.8m
+        MAX_DEPTH_FOR_FOV = 1.8  # Maximum depth to consider for FOV (meters)
+        valid_mask = (depth_m > 0.1) & (depth_m < min(depth_threshold, MAX_DEPTH_FOR_FOV)) & np.isfinite(depth_m)
+
+        if not np.any(valid_mask):
+            node.get_logger().warn("No valid depth values found for FOV computation")
+            return None
+
+        # Get coordinates of valid pixels
+        ys, xs = np.nonzero(valid_mask)
+        zs = depth_m[valid_mask]
+
+        # Project all valid pixels to 3D in camera frame
+        Xs = (xs - cx) * zs / fx
+        Ys = (ys - cy) * zs / fy
+
+        # Get min/max in camera frame
+        x_min_cam, x_max_cam = float(Xs.min()), float(Xs.max())
+        y_min_cam, y_max_cam = float(Ys.min()), float(Ys.max())
+        z_min_cam, z_max_cam = float(zs.min()), float(zs.max())
+
+        # Transform the 8 corners of the camera-frame box to map frame
+        camera_frame = camera_info.header.frame_id
+
+        corners_camera = [
+            (x_min_cam, y_min_cam, z_min_cam),
+            (x_max_cam, y_min_cam, z_min_cam),
+            (x_min_cam, y_max_cam, z_min_cam),
+            (x_max_cam, y_max_cam, z_min_cam),
+            (x_min_cam, y_min_cam, z_max_cam),
+            (x_max_cam, y_min_cam, z_max_cam),
+            (x_min_cam, y_max_cam, z_max_cam),
+            (x_max_cam, y_max_cam, z_max_cam),
+        ]
+
+        try:
+            corners_map = [
+                _transform_point_xyz(p, camera_frame, "map", node=node)
+                for p in corners_camera
+            ]
+
+            corners_map_array = np.array(corners_map)
+
+            fov_map = {
+                "x_min": float(corners_map_array[:, 0].min()),
+                "x_max": float(corners_map_array[:, 0].max()),
+                "y_min": float(corners_map_array[:, 1].min()),
+                "y_max": float(corners_map_array[:, 1].max()),
+                "z_min": float(corners_map_array[:, 2].min()),
+                "z_max": float(corners_map_array[:, 2].max())
+            }
+
+            node.get_logger().info(f"FOV volume (map frame): X[{fov_map['x_min']:.2f}, {fov_map['x_max']:.2f}], "
+                                   f"Y[{fov_map['y_min']:.2f}, {fov_map['y_max']:.2f}], "
+                                   f"Z[{fov_map['z_min']:.2f}, {fov_map['z_max']:.2f}]")
+
+            return fov_map
+
+        except Exception as e:
+            node.get_logger().warn(f"Could not transform FOV to map frame: {e}")
+            return None
+
+    except Exception as e:
+        node.get_logger().error(f"Error computing FOV volume: {e}")
+        return None
 
 # Setup file logger and project paths
 file_path = os.path.abspath(__file__)
@@ -413,8 +512,20 @@ class DetectObjects(Node):
 
             empty_bboxes = Bbox3dArray()
             empty_bboxes.header = Header(stamp=self.get_clock().now().to_msg(), frame_id="map")
+
+            # Even with no detections, compute and publish FOV from depth
+            fov_volume = compute_fov_volume_from_depth(depth, camera_info, self)
+            if fov_volume:
+                empty_bboxes.fov_x_min = fov_volume["x_min"]
+                empty_bboxes.fov_x_max = fov_volume["x_max"]
+                empty_bboxes.fov_y_min = fov_volume["y_min"]
+                empty_bboxes.fov_y_max = fov_volume["y_max"]
+                empty_bboxes.fov_z_min = fov_volume["z_min"]
+                empty_bboxes.fov_z_max = fov_volume["z_max"]
+                self.get_logger().info(f"FOV volume included in empty Bbox3dArray")
+
             self.bbox_pub.publish(empty_bboxes)
-            self.get_logger().info("Published empty Bbox3dArray (0 bboxes)")
+            self.get_logger().info("Published empty Bbox3dArray (0 bboxes) with FOV")
 
             # Waiting for user input to start next perception cycle or automatic after movement
             self.waiting_for_input = False 
@@ -503,11 +614,27 @@ class DetectObjects(Node):
         msg = Bbox3dArray()
         msg.header = Header(stamp=self.get_clock().now().to_msg(), frame_id="map")
 
+        # Compute FOV volume from the entire depth image
+        fov_volume = compute_fov_volume_from_depth(depth, camera_info, self)
+        if fov_volume:
+            msg.fov_x_min = fov_volume["x_min"]
+            msg.fov_x_max = fov_volume["x_max"]
+            msg.fov_y_min = fov_volume["y_min"]
+            msg.fov_y_max = fov_volume["y_max"]
+            msg.fov_z_min = fov_volume["z_min"]
+            msg.fov_z_max = fov_volume["z_max"]
+
         # --- 4. Calculate 3D centroids and bboxes for ALL detections together ---
         all_masks = [det.mask[:, :, 0] for det in detections]
         centroids_3d, bboxes_3d = mask_list_to_centroid_and_bbox(
             all_masks, labels1, depth, camera_info, node=self, bbox_marker_pub=self.bbox_marker_pub, centroid_marker_pub=self.centroid_marker_pub
         )
+
+        # --- Create output directories for cropped images ---
+        output_dir = os.path.expanduser(os.path.join(os.path.dirname(file_path), "../../output"))
+        os.makedirs(output_dir, exist_ok=True)
+        crops_output_dir = os.path.join(output_dir, "cropped_images")
+        os.makedirs(crops_output_dir, exist_ok=True)
 
         # --- 5. Prepare crop images ---
         crops_data = []
@@ -533,6 +660,13 @@ class DetectObjects(Node):
                 self.get_logger().warn(f"Invalid crop for {det.label}: bbox={det.bbox}, image dimensions={h}x{w}")
                 crops_data.append(None)
                 continue
+
+            # Save cropped image with bbox
+            timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+            crop_with_box = cropped.copy()
+            cv2.rectangle(crop_with_box, (0, 0), (crop_with_box.shape[1]-1, crop_with_box.shape[0]-1), (0, 255, 0), 2)
+            crop_filename = f"crop_{det.instance_label.replace(' ', '_')}_{timestamp_str}_{idx}.jpg"
+            cv2.imwrite(os.path.join(crops_output_dir, crop_filename), crop_with_box)
 
             crops_data.append({
                 'cropped': cropped,
@@ -571,8 +705,6 @@ class DetectObjects(Node):
                             break
 
         # --- Save JSON and prepare descriptions for DEBUG ---
-        output_dir = os.path.expanduser(os.path.join(os.path.dirname(file_path), "../../output"))
-        os.makedirs(output_dir, exist_ok=True)
         
         # Iterate over DETECTIONS to match result, bbox, and centroid
         for idx, det in enumerate(detections):

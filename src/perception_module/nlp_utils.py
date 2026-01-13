@@ -169,10 +169,10 @@ def lost_similarity(word2vec_model, label1, label2, color1, color2, material1, m
     Returns:
         float: Overall similarity [0, 1]
     """
-    alpha = 0.15   # label weight
+    alpha = 0.05   # label weight
     beta = 0.30    # color weight
     gamma = 0.15   # material weight (reduced from 0.25)
-    delta = 0.40   # description weight (increased from 0.25)
+    delta = 0.50  # description weight (increased from 0.25)
 
     # Calculate individual similarities
     label_sim = semantic_similarity(word2vec_model, label1, label2)

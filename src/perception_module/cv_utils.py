@@ -580,29 +580,8 @@ def points_list_to_rviz_3d(points, node, centroid_marker_pub=None, labels=None, 
         marker.color = color
         marker.lifetime = Duration(seconds=0).to_msg()  # Permanente
 
-        # Text marker for the label
-        text_marker = Marker()
-        text_marker.header.frame_id = frame_id
-        text_marker.header.stamp = node.get_clock().now().to_msg()
-        text_marker.ns = "centroid_labels"
-        text_marker.id = text_id
-        text_marker.type = Marker.TEXT_VIEW_FACING
-        text_marker.action = Marker.ADD
-        text_marker.pose.position.x = x
-        text_marker.pose.position.y = y
-        text_marker.pose.position.z = z + marker_scale * 1.5
-        text_marker.pose.orientation.x = 0.0
-        text_marker.pose.orientation.y = 0.0
-        text_marker.pose.orientation.z = 0.0
-        text_marker.pose.orientation.w = 1.0
-        text_marker.scale.z = marker_scale * 1.2
-        text_marker.color = color_text
-        # Replace spaces with newlines for better readability in RViz
-        text_marker.text = label.replace(' ', '\n')
-        text_marker.lifetime = Duration(seconds=0).to_msg()
-
+        # Solo sfera, nessuna label per ridurre affollamento in RViz
         marker_array.markers.append(marker)
-        marker_array.markers.append(text_marker)
 
     if len(marker_array.markers) > 0:
         centroid_marker_pub.publish(marker_array)
@@ -899,35 +878,148 @@ def publish_pov_volume(node, pov_volume, considered_volume_pub=None):
 
         marker.lifetime = Duration(seconds=0).to_msg()  # PERMANENTE
 
-        # Marker per il testo
+        # Nessuna label per POV VOLUME - riduce affollamento
+        marker_array = MarkerArray()
+        marker_array.markers.append(marker)
+
+        considered_volume_pub.publish(marker_array)
+
+def publish_persistent_centroids(node, wm, persistent_centroids_pub=None):
+    """Publish centroids of persistent objects as GREEN spheres."""
+    marker_array = MarkerArray()
+    
+    for i, obj in enumerate(wm.persistent_perceptions):
+        if obj.bbox is None:
+            continue
+            
+        # Calculate centroid
+        cx = (obj.bbox["x_min"] + obj.bbox["x_max"]) / 2.0
+        cy = (obj.bbox["y_min"] + obj.bbox["y_max"]) / 2.0
+        cz = (obj.bbox["z_min"] + obj.bbox["z_max"]) / 2.0
+        
+        marker = Marker()
+        marker.header.frame_id = "map"
+        marker.header.stamp = node.get_clock().now().to_msg()
+        marker.ns = "persistent_centroids"
+        marker.id = i
+        marker.type = Marker.SPHERE
+        marker.action = Marker.ADD
+        
+        marker.pose.position.x = cx
+        marker.pose.position.y = cy
+        marker.pose.position.z = cz
+        marker.pose.orientation.w = 1.0
+        
+        marker.scale.x = marker.scale.y = marker.scale.z = 0.08
+        
+        # Green color
+        marker.color.r = 0.0
+        marker.color.g = 1.0
+        marker.color.b = 0.0
+        marker.color.a = 1.0
+        
+        marker.lifetime = Duration(seconds=0).to_msg()
+        marker_array.markers.append(marker)
+        
+        # Text marker for label (without spaces)
         text_marker = Marker()
         text_marker.header.frame_id = "map"
         text_marker.header.stamp = node.get_clock().now().to_msg()
-        text_marker.ns = "pov_label"
-        text_marker.id = 1
+        text_marker.ns = "persistent_centroid_labels"
+        text_marker.id = i + 10000  # Offset to avoid ID conflicts
         text_marker.type = Marker.TEXT_VIEW_FACING
         text_marker.action = Marker.ADD
-
-        text_marker.pose.position.x = marker.pose.position.x
-        text_marker.pose.position.y = marker.pose.position.y
-        text_marker.pose.position.z = pov_volume["z_max"] + 0.25
+        
+        text_marker.pose.position.x = cx
+        text_marker.pose.position.y = cy
+        text_marker.pose.position.z = cz + 0.1  # Slightly above centroid
         text_marker.pose.orientation.w = 1.0
-
-        text_marker.text = "POV VOLUME"
-        text_marker.scale.z = 0.15
-
+        
+        # Remove spaces from label
+        text_marker.text = obj.label.replace(' ', '')
+        text_marker.scale.z = 0.08
+        
+        # White color
         text_marker.color.r = 1.0
-        text_marker.color.g = 0.5
-        text_marker.color.b = 0.5
+        text_marker.color.g = 1.0
+        text_marker.color.b = 1.0
         text_marker.color.a = 1.0
-
-        text_marker.lifetime = Duration(seconds=0).to_msg()  # PERMANENTE
-
-        marker_array = MarkerArray()
-        marker_array.markers.append(marker)
+        
+        text_marker.lifetime = Duration(seconds=0).to_msg()
         marker_array.markers.append(text_marker)
+    
+    if persistent_centroids_pub and len(marker_array.markers) > 0:
+        persistent_centroids_pub.publish(marker_array)
 
-        considered_volume_pub.publish(marker_array)
+def publish_uncertain_centroids(node, uncertain_objects, uncertain_centroids_pub):
+    """Publish centroids of uncertain objects as ORANGE spheres."""
+    if not uncertain_objects:
+        return
+        
+    marker_array = MarkerArray()
+    
+    for i, obj in enumerate(uncertain_objects):
+        if obj.bbox is None:
+            continue
+            
+        # Calculate centroid
+        cx = (obj.bbox["x_min"] + obj.bbox["x_max"]) / 2.0
+        cy = (obj.bbox["y_min"] + obj.bbox["y_max"]) / 2.0
+        cz = (obj.bbox["z_min"] + obj.bbox["z_max"]) / 2.0
+        
+        marker = Marker()
+        marker.header.frame_id = "map"
+        marker.header.stamp = node.get_clock().now().to_msg()
+        marker.ns = "uncertain_centroids"
+        marker.id = i
+        marker.type = Marker.SPHERE
+        marker.action = Marker.ADD
+        
+        marker.pose.position.x = cx
+        marker.pose.position.y = cy
+        marker.pose.position.z = cz
+        marker.pose.orientation.w = 1.0
+        
+        marker.scale.x = marker.scale.y = marker.scale.z = 0.08
+        
+        # Orange color
+        marker.color.r = 1.0
+        marker.color.g = 0.6
+        marker.color.b = 0.0
+        marker.color.a = 1.0
+        
+        marker.lifetime = Duration(seconds=0).to_msg()
+        marker_array.markers.append(marker)
+        
+        # Text marker for label (without spaces)
+        text_marker = Marker()
+        text_marker.header.frame_id = "map"
+        text_marker.header.stamp = node.get_clock().now().to_msg()
+        text_marker.ns = "uncertain_centroid_labels"
+        text_marker.id = i + 10000  # Offset to avoid ID conflicts
+        text_marker.type = Marker.TEXT_VIEW_FACING
+        text_marker.action = Marker.ADD
+        
+        text_marker.pose.position.x = cx
+        text_marker.pose.position.y = cy
+        text_marker.pose.position.z = cz + 0.1  # Slightly above centroid
+        text_marker.pose.orientation.w = 1.0
+        
+        # Remove spaces from label and add [?]
+        text_marker.text = obj.label.replace(' ', '') + "[?]"
+        text_marker.scale.z = 0.08
+        
+        # Orange color
+        text_marker.color.r = 1.0
+        text_marker.color.g = 0.6
+        text_marker.color.b = 0.0
+        text_marker.color.a = 1.0
+        
+        text_marker.lifetime = Duration(seconds=0).to_msg()
+        marker_array.markers.append(text_marker)
+    
+    if uncertain_centroids_pub and len(marker_array.markers) > 0:
+        uncertain_centroids_pub.publish(marker_array)
 
 def publish_persistent_bboxes(node, wm, persistent_bboxes_pub=None):
 
@@ -972,36 +1064,6 @@ def publish_persistent_bboxes(node, wm, persistent_bboxes_pub=None):
             # ROS2_MIGRATION: Duration(0) significa permanente
             marker.lifetime = Duration(seconds=0).to_msg()
             marker_array.markers.append(marker)
-
-            # Marker for text (label)
-            text_marker = Marker()
-            text_marker.header.frame_id = "map"
-            # ROS2_MIGRATION
-            text_marker.header.stamp = node.get_clock().now().to_msg()
-            text_marker.ns = "persistent_labels"
-            text_marker.id = i * 2 + 1  # Odd ID for texts
-            text_marker.type = Marker.TEXT_VIEW_FACING
-            text_marker.action = Marker.ADD
-
-            # Position (above the bbox)
-            text_marker.pose.position.x = marker.pose.position.x
-            text_marker.pose.position.y = marker.pose.position.y
-            text_marker.pose.position.z = obj.bbox["z_max"] + 0.1
-            text_marker.pose.orientation.w = 1.0
-
-            # Text - Replace spaces with newlines for better readability
-            text_marker.text = obj.label.replace(' ', '\n')
-            text_marker.scale.z = 0.1  # Text height
-
-            # Color (white)
-            text_marker.color.r = 1.0
-            text_marker.color.g = 1.0
-            text_marker.color.b = 1.0
-            text_marker.color.a = 1.0
-
-            # ROS2_MIGRATION
-            text_marker.lifetime = Duration(seconds=0).to_msg()
-            marker_array.markers.append(text_marker)
 
         # Publish
         persistent_bboxes_pub.publish(marker_array)
@@ -1050,38 +1112,8 @@ def publish_uncertain_bboxes(node, uncertain_objects, uncertain_bbox_pub):
             marker.lifetime = Duration(seconds=0).to_msg()
             marker_array.markers.append(marker)
 
-            # Marker for text (label)
-            text_marker = Marker()
-            text_marker.header.frame_id = "map"
-            text_marker.header.stamp = node.get_clock().now().to_msg()
-            text_marker.ns = "uncertain_labels"
-            text_marker.id = i * 2 + 1  # Odd ID for texts
-            text_marker.type = Marker.TEXT_VIEW_FACING
-            text_marker.action = Marker.ADD
-
-            # Position (above the bbox)
-            text_marker.pose.position.x = marker.pose.position.x
-            text_marker.pose.position.y = marker.pose.position.y
-            text_marker.pose.position.z = obj.bbox["z_max"] + 0.1
-            text_marker.pose.orientation.w = 1.0
-
-            # Text - Replace spaces with newlines for better readability
-            label_with_newlines = obj.label.replace(' ', '\n')
-            text_marker.text = f"{label_with_newlines}\n[UNCERTAIN]"
-            text_marker.scale.z = 0.1  # Text height
-
-            # Color (ORANGE)
-            text_marker.color.r = 1.0
-            text_marker.color.g = 0.6
-            text_marker.color.b = 0.0
-            text_marker.color.a = 1.0
-
-            text_marker.lifetime = Duration(seconds=0).to_msg()
-            marker_array.markers.append(text_marker)
-
         # Publish
         uncertain_bbox_pub.publish(marker_array)
-        
 
 
 def vlm_call(prompt, encoded_image):
