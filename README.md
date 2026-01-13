@@ -67,12 +67,11 @@ sudo apt install -y \
 ```
 
 ### Step 3: Clone the Repository in workspace (in the example ~/ros2_ws/src)
-
 ```bash
 mkdir -p ~/ros2_ws/src
 cd ~/ros2_ws/src
-git clone https://github.com/Lab-RoCoCo-Sapienza/lost-3dsg/
-cd lost-3dsg
+git clone https://github.com/Lab-RoCoCo-Sapienza/lost-3dsg/ lost3dsg
+cd lost3dsg
 ```
 
 ### Step 4: Install Python Dependencies
